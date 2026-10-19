@@ -2,7 +2,8 @@ from pymongo import MongoClient
 from modules.security import hash_password
 
 try:
-  client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=2000)
+  uri = "mongodb+srv://g2miguelangel_db_user:admin123456@cluster0.vhxwd8w.mongodb.net/"
+  client = MongoClient(uri, serverSelectionTimeoutMS=2000)
   db = client["gestion_academica"]
   client.server_info()
   db_conectada = True
