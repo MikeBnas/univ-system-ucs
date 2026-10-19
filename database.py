@@ -4,24 +4,24 @@ from modules.security import hash_password
 
 @st.cache_resource
 def init_connection():
-  """Inicializa la conexión leyendo de forma segura los secretos de Streamlit."""
+  """Inicializa la conexión leyendo de forma segura los secretos de Streamlit con fallback local."""
+  mongo_uri = "mongodb://localhost:27017/"
+  
   try:
-    # Intenta leer la URI exclusivamente desde los secretos
     if "mongo" in st.secrets and "uri" in st.secrets["mongo"]:
       mongo_uri = st.secrets["mongo"]["uri"]
     elif "general" in st.secrets and "MONGO_URI" in st.secrets["general"]:
       mongo_uri = st.secrets["general"]["MONGO_URI"]
-    else:
-      # Si no hay secretos configurados localmente, cae a un entorno local seguro por defecto
-      mongo_uri = "mongodb://localhost:27017/"
+  except Exception:
+    pass
 
+  try:
     client = MongoClient(
         mongo_uri, 
         serverSelectionTimeoutMS=5000,
         tls=True,
         tlsAllowInvalidCertificates=True
     )
-    
     client.server_info()
     return client
   except Exception as e:
@@ -31,9 +31,14 @@ def init_connection():
 client = init_connection()
 
 if client is not None:
-  db = client.get_default_database()
-  if db is None:
+  # Intentamos obtener la base de datos por defecto, si no existe en la URI, forzamos 'gestion_academica'
+  try:
+    db = client.get_default_database()
+    if db is None or db.name == "test": # A veces por defecto toma 'test' si no se especifica
+      db = client["gestion_academica"]
+  except Exception:
     db = client["gestion_academica"]
+    
   db_conectada = True
 else:
   db = None
