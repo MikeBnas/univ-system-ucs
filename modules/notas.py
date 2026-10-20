@@ -338,10 +338,15 @@ def render():
                     ["Ordinario", "Reparación I", "Reparación II"],
                 )
                 
-                # NUEVO: Selector de Tramo
-                es_por_tramo = st.checkbox("¿Esta materia es evaluada por tramos?")
+                # Selector claro de modalidad: Al elegir "Por Tramo", se despliega el selector de tramo
+                modalidad_eval = st.radio(
+                    "¿La materia es evaluada por tramos?",
+                    ["Normal", "Por Tramo"],
+                    horizontal=True
+                )
+                
                 tramo_sel = None
-                if es_por_tramo:
+                if modalidad_eval == "Por Tramo":
                   tramo_sel = st.selectbox("Seleccionar Tramo", ["I", "II", "III"])
 
               with col_n2:
@@ -357,6 +362,7 @@ def render():
               )
 
               if btn_guardar:
+                es_por_tramo = (modalidad_eval == "Por Tramo")
                 doc_nota = {
                     "cedula": str(cedula_encontrada),
                     "cod_materia": cod_materia,
@@ -373,7 +379,7 @@ def render():
                     ),
                 }
 
-                # Criterio de actualización considerando el tramo
+                # Filtro para actualizar considerando si lleva tramo o no
                 filtro_query = {
                     "cedula": str(cedula_encontrada),
                     "cod_materia": cod_materia,
