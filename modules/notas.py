@@ -324,6 +324,24 @@ def render():
                 materia_sel.split(" - ")[1] if " - " in materia_sel else ""
             )
 
+            # 1. Selector de modalidad y tramo FUERA del form para que aparezca al instante
+            tipo_eval = st.selectbox(
+                "Tipo de Evaluación",
+                ["Ordinario", "Reparación I", "Reparación II"],
+            )
+
+            modalidad_eval = st.radio(
+                "¿La materia es evaluada por tramos?",
+                ["Normal", "Por Tramo"],
+                horizontal=True,
+                key="modalidad_eval_radio"
+            )
+
+            tramo_sel = None
+            if modalidad_eval == "Por Tramo":
+              tramo_sel = st.selectbox("Seleccionar Tramo", ["I", "II", "III"], key="tramo_selector")
+
+            # 2. Formulario para ingresar la nota final y guardar
             with st.form("form_guardar_nota_individual"):
               col_n1, col_n2 = st.columns(2)
               with col_n1:
@@ -333,22 +351,6 @@ def render():
                     max_value=20.0,
                     step=0.5,
                 )
-                tipo_eval = st.selectbox(
-                    "Tipo de Evaluación",
-                    ["Ordinario", "Reparación I", "Reparación II"],
-                )
-                
-                # Selector claro de modalidad: Al elegir "Por Tramo", se despliega el selector de tramo
-                modalidad_eval = st.radio(
-                    "¿La materia es evaluada por tramos?",
-                    ["Normal", "Por Tramo"],
-                    horizontal=True
-                )
-                
-                tramo_sel = None
-                if modalidad_eval == "Por Tramo":
-                  tramo_sel = st.selectbox("Seleccionar Tramo", ["I", "II", "III"])
-
               with col_n2:
                 anio_fecha = st.selectbox(
                     "Año Académico / Fecha", [str(y) for y in range(2026, 2018, -1)]
@@ -379,7 +381,7 @@ def render():
                     ),
                 }
 
-                # Filtro para actualizar considerando si lleva tramo o no
+                # Criterio de actualización considerando el tramo
                 filtro_query = {
                     "cedula": str(cedula_encontrada),
                     "cod_materia": cod_materia,
