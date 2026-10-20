@@ -133,7 +133,7 @@ def generar_pdf_constancia_notas(filename, estudiante, notas_list, carrera_nombr
   table_data = [[
       Paragraph("CÓDIGO", table_header),
       Paragraph("UNIDAD CURRICULAR", table_header),
-      Paragraph("TRAYECTO", table_header),
+      Paragraph("TRAYECTO / TRAMO", table_header),
       Paragraph("NOTA", table_header),
   ]]
 
@@ -146,7 +146,12 @@ def generar_pdf_constancia_notas(filename, estudiante, notas_list, carrera_nombr
 
     trayecto_base = str(n.get("trayecto", "I")).replace("Trayecto ", "").strip()
     anio_carga = str(n.get("anio", "2026"))
-    trayecto_anio_str = f"{trayecto_base} - {anio_carga}"
+    tramo_val = n.get("tramo")
+    
+    if tramo_val:
+      trayecto_anio_str = f"Trayecto {trayecto_base} - Tramo {tramo_val} ({anio_carga})"
+    else:
+      trayecto_anio_str = f"{trayecto_base} - {anio_carga}"
 
     table_data.append([
         Paragraph(str(n.get("cod_materia", "")), table_cell),
@@ -155,7 +160,7 @@ def generar_pdf_constancia_notas(filename, estudiante, notas_list, carrera_nombr
         Paragraph(str(nota_entera), table_cell),
     ])
 
-  t_notas = Table(table_data, colWidths=[80, 312, 80, 80])
+  t_notas = Table(table_data, colWidths=[80, 292, 100, 80])
   t_notas.setStyle(TableStyle([
       ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
       ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -245,7 +250,6 @@ def render():
           "📥 Solicitudes Pendientes de Notas"
       ])
     else:
-      # Si es Docente, no ve la pestaña de solicitudes pendientes de notas
       tab_carga, tab_gestion = st.tabs([
           "➕ Cargar Nota Individual",
           "📋 Listado y Gestión de Notas"
@@ -333,6 +337,13 @@ def render():
                     "Tipo de Evaluación",
                     ["Ordinario", "Reparación I", "Reparación II"],
                 )
+                
+                # NUEVO: Selector de Tramo
+                es_por_tramo = st.checkbox("¿Esta materia es evaluada por tramos?")
+                tramo_sel = None
+                if es_por_tramo:
+                  tramo_sel = st.selectbox("Seleccionar Tramo", ["I", "II", "III"])
+
               with col_n2:
                 anio_fecha = st.selectbox(
                     "Año Académico / Fecha", [str(y) for y in range(2026, 2018, -1)]
@@ -351,6 +362,8 @@ def render():
                     "cod_materia": cod_materia,
                     "nombre_materia": nombre_mat_limpio,
                     "trayecto": trayecto_sel,
+                    "es_por_tramo": es_por_tramo,
+                    "tramo": tramo_sel if es_por_tramo else None,
                     "nota": nota_valor,
                     "tipo_evaluacion": tipo_eval,
                     "docente": docente_ingresa,
@@ -360,12 +373,16 @@ def render():
                     ),
                 }
 
+                # Criterio de actualización considerando el tramo
+                filtro_query = {
+                    "cedula": str(cedula_encontrada),
+                    "cod_materia": cod_materia,
+                    "tipo_evaluacion": tipo_eval,
+                    "tramo": tramo_sel if es_por_tramo else None
+                }
+
                 notas_col.update_one(
-                    {
-                        "cedula": str(cedula_encontrada),
-                        "cod_materia": cod_materia,
-                        "tipo_evaluacion": tipo_eval,
-                    },
+                    filtro_query,
                     {"$set": doc_nota},
                     upsert=True,
                 )
@@ -374,8 +391,7 @@ def render():
                     db,
                     usuario_actual,
                     "CARGAR_NOTA",
-                    f"Cargada nota {nota_valor} en {cod_materia} para cedula"
-                    f" {cedula_encontrada}",
+                    f"Cargada nota {nota_valor} en {cod_materia} (Tramo: {tramo_sel if es_por_tramo else 'N/A'}) para cédula {cedula_encontrada}",
                 )
 
                 st.success("¡Calificación guardada exitosamente!")
@@ -437,6 +453,7 @@ def render():
           with st.form("form_editar_nota"):
             cedula_edit = st.text_input("Cédula del estudiante a editar").strip()
             mat_edit = st.text_input("Código de la materia a editar").strip()
+            tramo_edit = st.selectbox("Tramo (si aplica)", ["Ninguno", "I", "II", "III"])
             nueva_nota = st.number_input(
                 "Nueva Nota", min_value=0.0, max_value=20.0, step=0.5
             )
@@ -449,6 +466,7 @@ def render():
               if c_int is not None:
                 q_edit["$or"].append({"cedula": c_int})
               q_edit["cod_materia"] = mat_edit
+              q_edit["tramo"] = None if tramo_edit == "Ninguno" else tramo_edit
 
               res = notas_col.update_one(
                   q_edit,
@@ -459,8 +477,7 @@ def render():
                     db,
                     usuario_actual,
                     "EDITAR_NOTA",
-                    f"Actualizada nota a {nueva_nota} para cédula {cedula_edit} en"
-                    f" materia {mat_edit}",
+                    f"Actualizada nota a {nueva_nota} para cédula {cedula_edit} en materia {mat_edit} (Tramo: {tramo_edit})",
                 )
                 st.success("¡Nota actualizada correctamente!")
               else:
@@ -517,8 +534,7 @@ def render():
               )
             else:
               st.warning(
-                  "Estudiante no encontrado o sin notas registradas para emitir"
-                  " el PDF."
+                  "Estudiante no encontrado o sin notas registradas para emitir el PDF."
               )
       else:
         st.info("No hay notas registradas en el sistema bajo este criterio.")
@@ -527,7 +543,7 @@ def render():
     if tab_solicitudes_notas is not None:
       with tab_solicitudes_notas:
         st.markdown("#### 📥 Estudiantes en Listado de Generación de Notas")
-        st.info("Aquí aparecen directamente los estudiantes que solicitaron su **Récord de Notas** desde el módulo de solicitudes y fueron agregados para su procesamiento.")
+        st.info("Aquí aparecen directamente los estudiantes que solicitaron su **Récord de Notas** desde el módulo de solicitudes.")
 
         lista_notas_pendientes = list(listas_col.find({"tipo_documento": "Récord de Notas"}))
 
@@ -540,7 +556,7 @@ def render():
           st.markdown("##### ⚡ Acción Rápida: Seleccionar Estudiante del Listado")
           
           cedulas_opciones = [str(item["cedula"]) for item in lista_notas_pendientes]
-          cedula_seleccionada = st.selectbox("Seleccione la Cédula del Solicitante para Consultar o Generar su Recorrido", cedulas_opciones)
+          cedula_seleccionada = st.selectbox("Seleccione la Cédula del Solicitante", cedulas_opciones)
 
           if cedula_seleccionada:
             est_sol = estudiantes_col.find_one({"cedula": cedula_seleccionada}) or estudiantes_col.find_one({"cedula": int(cedula_seleccionada) if cedula_seleccionada.isdigit() else 0})
@@ -586,6 +602,6 @@ def render():
                         key=f"dl_pdf_{cedula_seleccionada}"
                     )
               else:
-                st.warning("Este estudiante aún no tiene calificaciones cargadas en el sistema para generar su recorrido.")
+                st.warning("Este estudiante aún no tiene calificaciones cargadas.")
         else:
           st.info("No hay solicitudes pendientes en el listado de generación de notas actualmente.")
