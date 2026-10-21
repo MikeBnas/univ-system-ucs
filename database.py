@@ -68,6 +68,6 @@ def inicializar_admin_por_defecto():
         'usuario': 'Administrador',
         'cedula': '00000000',
         'email': 'admin@ucs.edu.ve',
-        'password': hash_password('Limala2121#$'),
+        'password': hash_password(''),
         'rol': 'Administrador',
     })
