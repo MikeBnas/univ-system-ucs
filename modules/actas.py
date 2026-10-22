@@ -149,9 +149,9 @@ def generar_pdf_acta(
       ],
       [
           "", "", "",  
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style),
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style),
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style)
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style),
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style),
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style)
       ]
   ]
 
