@@ -19,28 +19,9 @@ def generar_pdf_acta(
     docente_cedula,
     estudiantes_list,
 ):
-  """Genera el acta de notas oficial con bloques fijos (encabezado, datos generales y firmas) en cada página"""
+  """Genera el acta de notas oficial con bloques fijos inteligentes, orden alfabético y formato de tramos exacto"""
 
-  # Estilos reutilizables para el canvas / elementos fijos
   styles = getSampleStyleSheet()
-
-  ministerio_style = ParagraphStyle(
-      'MinisterioStyle',
-      parent=styles['Normal'],
-      fontName='Helvetica-Bold',
-      fontSize=8,
-      leading=10,
-      alignment=1
-  )
-  
-  acta_title_style = ParagraphStyle(
-      'ActaTitleStyle',
-      parent=styles['Normal'],
-      fontName='Helvetica-Bold',
-      fontSize=10,
-      leading=12,
-      alignment=1
-  )
 
   header_style = ParagraphStyle(
       'HeaderStyle',
@@ -60,21 +41,18 @@ def generar_pdf_acta(
       alignment=0
   )
 
-  # Función para dibujar Bloque 1 (Imagen y Títulos) y Bloque 2 (Datos generales) fijos en cada página
+  # 1. Función para dibujar Bloque 1 (Imagen y Títulos) y Bloque 2 (Datos generales) fijos en cada página
   def dibujar_encabezado_fijo(canvas, doc_obj):
     canvas.saveState()
-    
-    # Coordenadas y ancho útil (Ancho total en landscape letter = 792 pt, márgenes de 20 pt -> ancho útil = 752 pt)
-    # Margen superior comienza en letter[0] (612 pt) hacia abajo
     y_cursor = letter[0] - 20 
 
-    # 1. Imagen de encabezado (encabezado.jpeg)
+    # Imagen de encabezado (encabezado.jpeg)
     logo_path = "encabezado.jpeg"
     if os.path.exists(logo_path):
       canvas.drawImage(logo_path, 20, y_cursor - 45, width=752, height=45)
       y_cursor -= 48
 
-    # 2. Textos institucionales fijos (Bloque 1)
+    # Títulos institucionales (Bloque 1)
     canvas.setFont("Helvetica-Bold", 8)
     canvas.drawCentredString(792 / 2.0, y_cursor - 8, "MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN UNIVERSITARIA CIENCIA Y TECNOLOGÍA")
     y_cursor -= 14
@@ -83,10 +61,10 @@ def generar_pdf_acta(
     canvas.drawCentredString(792 / 2.0, y_cursor - 8, "ACTA DE EXAMEN")
     y_cursor -= 18
 
-    # 3. Bloque 2: Datos generales fijos en cada página
-    trayecto_tramo_txt = f"{trayecto.upper()} - Tramo {tramo}" if tramo != "No Aplica" else trayecto.upper()
+    # Bloque 2: Datos generales fijos en cada página con el formato exacto solicitado
+    trayecto_txt = f"Trayecto: {trayecto.upper()}"
+    tramo_txt = f"Tramo: {tramo}" if tramo != "No Aplica" and tramo else "Tramo: "
     
-    # Dibujamos una tabla limpia para los datos generales fijos
     info_data = [
         [
             Paragraph(f"<b>CARRERA / PNF:</b> {carrera.upper()}", cell_style),
@@ -94,7 +72,7 @@ def generar_pdf_acta(
         ],
         [
             Paragraph(f"<b>ASIG. O UNIDAD CURRICULAR:</b> {materia.upper()}", cell_style),
-            Paragraph(f"<b>TRAYECTO / TRAMO:</b> {trayecto_tramo_txt}", cell_style)
+            Paragraph(f"<b>{trayecto_txt}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>{tramo_txt}</b>", cell_style)
         ],
         [
             Paragraph("<b>ESTADO:</b> Barinas", cell_style),
@@ -110,48 +88,48 @@ def generar_pdf_acta(
         ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black),
     ]))
     
-    # Renderizar la tabla de datos generales en el canvas en cada página
     t_info.wrapOn(canvas, 752, 500)
     t_info.drawOn(canvas, 20, y_cursor - 45)
 
     canvas.restoreState()
 
-  # Función para dibujar Bloque 5 (Firmas al pie) fijo en cada página
+  # 2. Función para dibujar el Bloque 5 (Firmas al pie) fijo solo en páginas completas
   def dibujar_pie_fijo(canvas, doc_obj):
-    canvas.saveState()
-    
-    # Bloque 5: Firmas al pie institucionales
-    firma_data = [
-        [
-            Paragraph(f"<b>DOCENTE:</b> {docente_nombre.upper()}<br/><b>C.I:</b> {docente_cedula}", cell_style),
-            Paragraph("<b>ORDINARIO</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
-            Paragraph("<b>REPARACIÓN I</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
-            Paragraph("<b>REPARACIÓN II</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style)
-        ]
-    ]
-    
-    t_firma = Table(firma_data, colWidths=[188, 188, 188, 188]) # Suman 752 pt total
-    t_firma.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 10), 
-    ]))
-    
-    # Posicionar el bloque de firmas fijo en la parte inferior de cada página (ej. a 20 pt del borde inferior)
-    t_firma.wrapOn(canvas, 752, 100)
-    t_firma.drawOn(canvas, 20, 20)
+    # Si la última página no se llena por completo, evitamos que el pie fijo se superponga
+    # Dejamos que el bloque añadido al final del story actúe si es la última hoja corta.
+    if doc_obj.page < doc_obj.canv._pageNumber or not hasattr(doc_obj, '_ultima_pagina_impresa'):
+      canvas.saveState()
+      
+      firma_data = [
+          [
+              Paragraph(f"<b>DOCENTE:</b> {docente_nombre.upper()}<br/><b>C.I:</b> {docente_cedula}", cell_style),
+              Paragraph("<b>ORDINARIO</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
+              Paragraph("<b>REPARACIÓN I</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
+              Paragraph("<b>REPARACIÓN II</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style)
+          ]
+      ]
+      
+      t_firma = Table(firma_data, colWidths=[188, 188, 188, 188])
+      t_firma.setStyle(TableStyle([
+          ('VALIGN', (0,0), (-1,-1), 'TOP'),
+          ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+          ('TOPPADDING', (0,0), (-1,-1), 4),
+          ('BOTTOMPADDING', (0,0), (-1,-1), 10), 
+      ]))
+      
+      t_firma.wrapOn(canvas, 752, 100)
+      t_firma.drawOn(canvas, 20, 20)
 
-    canvas.restoreState()
+      canvas.restoreState()
 
   # Configurar documento en formato horizontal (landscape)
-  # Dejamos topMargin=135 y bottomMargin=65 para dejar espacio exacto a los bloques fijos sin que las tablas de estudiantes los solapen
+  # Margen superior en 140 para dar espacio al encabezado + pequeño margen adicional para la tabla de estudiantes
   doc = SimpleDocTemplate(
       filename,
       pagesize=landscape(letter),
       rightMargin=20,
       leftMargin=20,
-      topMargin=135,
+      topMargin=140,
       bottomMargin=65
   )
 
@@ -163,7 +141,7 @@ def generar_pdf_acta(
       key=lambda x: str(x.get('apellidos', '')).strip().upper()
   )
 
-  # 3. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES (El cuerpo dinámico que fluye entre páginas)
+  # 3. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES
   table_data = [
       [
           Paragraph("N°", header_style),
@@ -213,12 +191,34 @@ def generar_pdf_acta(
       ('BOTTOMPADDING', (0,0), (-1,-1), 2),
   ]))
   
+  # Añadimos un pequeño espaciador antes de la tabla para darle el margen superior solicitado
+  story.append(Spacer(1, 4))
   story.append(t_estudiantes)
+  story.append(Spacer(1, 10))
 
-  # Construir PDF aplicando los canvas fijos tanto para la primera como para las páginas siguientes
+  # 4. Bloque 5 integrado en el flujo para que aparezca justo después de la tabla si la página no se llena
+  firma_data_flujo = [
+      [
+          Paragraph(f"<b>DOCENTE:</b> {docente_nombre.upper()}<br/><b>C.I:</b> {docente_cedula}", cell_style),
+          Paragraph("<b>ORDINARIO</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
+          Paragraph("<b>REPARACIÓN I</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
+          Paragraph("<b>REPARACIÓN II</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style)
+      ]
+  ]
+  t_firma_flujo = Table(firma_data_flujo, colWidths=[188, 188, 188, 188])
+  t_firma_flujo.setStyle(TableStyle([
+      ('VALIGN', (0,0), (-1,-1), 'TOP'),
+      ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+      ('TOPPADDING', (0,0), (-1,-1), 4),
+      ('BOTTOMPADDING', (0,0), (-1,-1), 10), 
+  ]))
+  
+  story.append(KeepTogether([t_firma_flujo]))
+
+  # Construir PDF
   doc.build(
       story, 
-      onFirstPage=lambda c, d: [dibujar_encabezado_fijo(c, d), dibujar_pie_fijo(c, d)], 
+      onFirstPage=lambda c, d: dibujar_encabezado_fijo(c, d), 
       onLaterPages=lambda c, d: [dibujar_encabezado_fijo(c, d), dibujar_pie_fijo(c, d)]
   )
 
@@ -402,6 +402,6 @@ def render():
                 file_name=f"Acta_{params['carrera'].split(' - ')[0]}_Trayecto{params['trayecto']}.pdf",
                 mime="application/pdf",
             )
-          st.success("¡PDF generado correctamente con bloques fijos en cada página!")
+          st.success("¡PDF generado con éxito aplicando los márgenes y bloques dinámicos!")
         else:
           st.error("Debe dejar al menos un estudiante seleccionado.")
