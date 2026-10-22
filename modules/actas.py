@@ -14,12 +14,13 @@ def generar_pdf_acta(
     materia,
     trayecto,
     tramo,
+    asic,
     anio_academico,
     docente_nombre,
     docente_cedula,
     estudiantes_list,
 ):
-  """Genera el acta de notas oficial con encabezado, datos generales y bloque de firmas fijos en cada página"""
+  """Genera el acta de notas oficial con bloques fijos, orden alfabético, tramo y filtro por ASIC"""
 
   styles = getSampleStyleSheet()
 
@@ -61,9 +62,10 @@ def generar_pdf_acta(
     canvas.drawCentredString(792 / 2.0, y_cursor - 8, "ACTA DE EXAMEN")
     y_cursor -= 18
 
-    # Bloque 2: Datos generales fijos en cada página
+    # Bloque 2: Datos generales fijos en cada página (Incluyendo ASIC y Tramo)
     trayecto_txt = f"Trayecto: {trayecto.upper()}"
     tramo_txt = f"Tramo: {tramo}" if tramo != "No Aplica" and tramo else "Tramo: "
+    asic_txt = f"ASIC: {asic.upper()}" if asic and asic != "No Aplica" else "ASIC: ____________________"
     
     info_data = [
         [
@@ -76,7 +78,7 @@ def generar_pdf_acta(
         ],
         [
             Paragraph("<b>ESTADO:</b> Barinas", cell_style),
-            Paragraph("<b>MUNICIPIO:</b> ____________________   <b>ASIC:</b> ____________________", cell_style)
+            Paragraph(f"<b>MUNICIPIO:</b> ____________________   <b>{asic_txt}</b>", cell_style)
         ]
     ]
     
@@ -106,7 +108,7 @@ def generar_pdf_acta(
         ]
     ]
     
-    t_firma = Table(firma_data, colWidths=[188, 188, 188, 188]) # Suman 752 pt total
+    t_firma = Table(firma_data, colWidths=[188, 188, 188, 188])
     t_firma.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
@@ -115,18 +117,18 @@ def generar_pdf_acta(
     ]))
     
     t_firma.wrapOn(canvas, 752, 100)
-    t_firma.drawOn(canvas, 20, 20) # Posicionado exactamente en el margen inferior de cada hoja
+    t_firma.drawOn(canvas, 20, 20)
 
     canvas.restoreState()
 
-  # Configuración del documento (landscape con márgenes seguros para evitar solapamientos)
+  # Configuración del documento
   doc = SimpleDocTemplate(
       filename,
       pagesize=landscape(letter),
       rightMargin=20,
       leftMargin=20,
-      topMargin=140, # Espacio reservado para los bloques superiores fijos
-      bottomMargin=65  # Espacio reservado para el bloque de firmas al pie
+      topMargin=140,
+      bottomMargin=65
   )
 
   story = []
@@ -149,9 +151,9 @@ def generar_pdf_acta(
       ],
       [
           "", "", "",  
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style),
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style),
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style)
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style),
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style),
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style)
       ]
   ]
 
@@ -187,11 +189,9 @@ def generar_pdf_acta(
       ('BOTTOMPADDING', (0,0), (-1,-1), 2),
   ]))
   
-  # Margen superior para la tabla de estudiantes
   story.append(Spacer(1, 4))
   story.append(t_estudiantes)
 
-  # Construir PDF aplicando encabezado y pie fijos en TODAS las páginas
   doc.build(
       story, 
       onFirstPage=lambda c, d: [dibujar_encabezado_fijo(c, d), dibujar_pie_fijo(c, d)], 
@@ -228,7 +228,7 @@ def render():
 
   cod_pnf_limpio = carrera_sel.split(" - ")[0] if " - " in carrera_sel else carrera_sel
 
-  # 3. Selección del Trayecto y Tramo
+  # 3. Selección del Trayecto, Tramo y ASIC
   col_tray, col_tram = st.columns(2)
   with col_tray:
     trayecto_sel = st.selectbox(
@@ -236,10 +236,22 @@ def render():
     )
 
   with col_tram:
-    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True)
+    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True, key="radio_tramo_acta")
     tramo_sel = "No Aplica"
     if usar_tramo == "Sí":
-      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"])
+      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"], key="sel_tramo_acta")
+
+  # NUEVO: Selector opcional de ASIC en Parámetros Académicos
+  st.markdown("---")
+  usar_asic = st.radio("¿Seleccionar estudiantes por ASIC?", ["No", "Sí"], horizontal=True, key="radio_asic_actas")
+  asic_sel = "No Aplica"
+  
+  if usar_asic == "Sí":
+    asics_registradas = [str(a).strip() for a in db["inscripciones_historial"].distinct("asic") if a]
+    if asics_registradas:
+      asic_sel = st.selectbox("Seleccione la ASIC", asics_registradas, key="sel_asic_dropdown")
+    else:
+      asic_sel = st.text_input("Ingrese el nombre de la ASIC", key="txt_asic_input")
 
   # 4. Filtrado de Materias
   trayectos_a_buscar = [trayecto_sel, f"Trayecto {trayecto_sel}"]
@@ -287,16 +299,16 @@ def render():
     if not materia_sel:
       st.error("Seleccione una materia válida.")
     else:
-      inscripciones = list(
-          db["inscripciones_historial"].find(
-              {
-                  "cod_pnf": cod_pnf_limpio,
-                  "trayecto": {"$in": [trayecto_sel, f"Trayecto {trayecto_sel}"]},
-                  "estado": "Activo",
-              },
-              {"_id": 0},
-          )
-      )
+      # Armar consulta en inscripciones_historial incluyendo el filtro opcional de ASIC
+      query_insc = {
+          "cod_pnf": cod_pnf_limpio,
+          "trayecto": {"$in": [trayecto_sel, f"Trayecto {trayecto_sel}"]},
+          "estado": "Activo",
+      }
+      if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
+        query_insc["asic"] = asic_sel
+
+      inscripciones = list(db["inscripciones_historial"].find(query_insc, {"_id": 0}))
 
       if inscripciones:
         cedulas_inscritas = [str(i["cedula"]).strip() for i in inscripciones]
@@ -320,16 +332,17 @@ def render():
               "materia": materia_sel,
               "trayecto": trayecto_sel,
               "tramo": tramo_sel,
+              "asic": asic_sel,
               "anio": anio_academico,
               "docente_nombre": docente_nombre,
               "docente_cedula": docente_cedula,
           }
-          st.success(f"¡Se cargaron {len(estudiantes_encontrados)} estudiantes activos!")
+          st.success(f"¡Se cargaron {len(estudiantes_encontrados)} estudiantes activos para la ASIC seleccionada!")
         else:
           st.warning("Se encontraron inscripciones, pero no coinciden con la tabla de estudiantes.")
           st.session_state["acta_estudiantes"] = []
       else:
-        st.warning("No hay estudiantes activos para esta carrera y trayecto.")
+        st.warning("No hay estudiantes activos para esta carrera, trayecto y ASIC seleccionada.")
         st.session_state["acta_estudiantes"] = []
 
   if "acta_estudiantes" in st.session_state and st.session_state["acta_estudiantes"]:
@@ -365,6 +378,7 @@ def render():
               params["materia"],
               params["trayecto"],
               params["tramo"],
+              params["asic"],
               params["anio"],
               params["docente_nombre"],
               params["docente_cedula"],
@@ -378,6 +392,6 @@ def render():
                 file_name=f"Acta_{params['carrera'].split(' - ')[0]}_Trayecto{params['trayecto']}.pdf",
                 mime="application/pdf",
             )
-          st.success("¡Acta generada perfectamente con el bloque de firmas y encabezados fijos en todas las páginas!")
+          st.success("¡Acta generada perfectamente con el filtro ASIC aplicado y diseño institucional!")
         else:
           st.error("Debe dejar al menos un estudiante seleccionado.")
