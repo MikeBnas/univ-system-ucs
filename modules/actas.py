@@ -19,31 +19,11 @@ def generar_pdf_acta(
     docente_cedula,
     estudiantes_list,
 ):
-  """Genera el acta de notas oficial con imagen en cada página, orden alfabético y bloque de firmas cerrado"""
-  
-  # Función callback para repetir la imagen de encabezado en cada nueva página
-  def agregar_encabezado_repetitivo(canvas, doc_obj):
-    canvas.saveState()
-    logo_path = "encabezado.jpeg"
-    if os.path.exists(logo_path):
-      # Dibujar imagen en el margen superior de cada página (ancho 752 pt, altura 45 pt)
-      canvas.drawImage(logo_path, 20, letter[0] - 65, width=752, height=45)
-    canvas.restoreState()
+  """Genera el acta de notas oficial con bloques fijos (encabezado, datos generales y firmas) en cada página"""
 
-  # Configurar documento en formato horizontal (landscape) con márgenes adecuados
-  doc = SimpleDocTemplate(
-      filename,
-      pagesize=landscape(letter),
-      rightMargin=20,
-      leftMargin=20,
-      topMargin=60,  # Margen superior reservado para la imagen repetitiva
-      bottomMargin=20
-  )
-
-  story = []
+  # Estilos reutilizables para el canvas / elementos fijos
   styles = getSampleStyleSheet()
 
-  # Estilos personalizados
   ministerio_style = ParagraphStyle(
       'MinisterioStyle',
       parent=styles['Normal'],
@@ -80,46 +60,110 @@ def generar_pdf_acta(
       alignment=0
   )
 
-  # 1. TÍTULOS OFICIALES (La imagen se dibuja automáticamente en cada página con onFirstPage/onLaterPages)
-  story.append(Paragraph("MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN UNIVERSITARIA CIENCIA Y TECNOLOGÍA", ministerio_style))
-  story.append(Spacer(1, 2))
-  story.append(Paragraph("ACTA DE EXAMEN", acta_title_style))
-  story.append(Spacer(1, 6))
+  # Función para dibujar Bloque 1 (Imagen y Títulos) y Bloque 2 (Datos generales) fijos en cada página
+  def dibujar_encabezado_fijo(canvas, doc_obj):
+    canvas.saveState()
+    
+    # Coordenadas y ancho útil (Ancho total en landscape letter = 792 pt, márgenes de 20 pt -> ancho útil = 752 pt)
+    # Margen superior comienza en letter[0] (612 pt) hacia abajo
+    y_cursor = letter[0] - 20 
 
-  # 2. DATOS GENERALES (Con el nuevo campo de TRAMO incluido)
-  trayecto_tramo_txt = f"{trayecto.upper()} - Tramo {tramo}" if tramo != "No Aplica" else trayecto.upper()
-  info_data = [
-      [
-          Paragraph(f"<b>CARRERA / PNF:</b> {carrera.upper()}", cell_style),
-          Paragraph(f"<b>CURSO ACADÉMICO:</b> {anio_academico}", cell_style)
-      ],
-      [
-          Paragraph(f"<b>ASIGNATURA O UNIDAD CURRICULAR:</b> {materia.upper()}", cell_style),
-          Paragraph(f"<b>TRAYECTO / TRAMO:</b> {trayecto_tramo_txt}", cell_style)
-      ],
-      [
-          Paragraph("<b>ESTADO:</b> Barinas", cell_style),
-          Paragraph("<b>MUNICIPIO:</b> ____________________   <b>ASIC:</b> ____________________", cell_style)
-      ]
-  ]
-  
-  t_info = Table(info_data, colWidths=[450, 302]) # Suman 752 pt exactos
-  t_info.setStyle(TableStyle([
-      ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-      ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-      ('TOPPADDING', (0,0), (-1,-1), 3),
-      ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black),
-  ]))
-  story.append(t_info)
-  story.append(Spacer(1, 6))
+    # 1. Imagen de encabezado (encabezado.jpeg)
+    logo_path = "encabezado.jpeg"
+    if os.path.exists(logo_path):
+      canvas.drawImage(logo_path, 20, y_cursor - 45, width=752, height=45)
+      y_cursor -= 48
 
-  # 3. ORDENAR ESTUDIANTES ALFABÉTICAMENTE POR EL PRIMER APELLIDO
+    # 2. Textos institucionales fijos (Bloque 1)
+    canvas.setFont("Helvetica-Bold", 8)
+    canvas.drawCentredString(792 / 2.0, y_cursor - 8, "MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN UNIVERSITARIA CIENCIA Y TECNOLOGÍA")
+    y_cursor -= 14
+    
+    canvas.setFont("Helvetica-Bold", 10)
+    canvas.drawCentredString(792 / 2.0, y_cursor - 8, "ACTA DE EXAMEN")
+    y_cursor -= 18
+
+    # 3. Bloque 2: Datos generales fijos en cada página
+    trayecto_tramo_txt = f"{trayecto.upper()} - Tramo {tramo}" if tramo != "No Aplica" else trayecto.upper()
+    
+    # Dibujamos una tabla limpia para los datos generales fijos
+    info_data = [
+        [
+            Paragraph(f"<b>CARRERA / PNF:</b> {carrera.upper()}", cell_style),
+            Paragraph(f"<b>CURSO ACADÉMICO:</b> {anio_academico}", cell_style)
+        ],
+        [
+            Paragraph(f"<b>ASIG. O UNIDAD CURRICULAR:</b> {materia.upper()}", cell_style),
+            Paragraph(f"<b>TRAYECTO / TRAMO:</b> {trayecto_tramo_txt}", cell_style)
+        ],
+        [
+            Paragraph("<b>ESTADO:</b> Barinas", cell_style),
+            Paragraph("<b>MUNICIPIO:</b> ____________________   <b>ASIC:</b> ____________________", cell_style)
+        ]
+    ]
+    
+    t_info = Table(info_data, colWidths=[450, 302])
+    t_info.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black),
+    ]))
+    
+    # Renderizar la tabla de datos generales en el canvas en cada página
+    t_info.wrapOn(canvas, 752, 500)
+    t_info.drawOn(canvas, 20, y_cursor - 45)
+
+    canvas.restoreState()
+
+  # Función para dibujar Bloque 5 (Firmas al pie) fijo en cada página
+  def dibujar_pie_fijo(canvas, doc_obj):
+    canvas.saveState()
+    
+    # Bloque 5: Firmas al pie institucionales
+    firma_data = [
+        [
+            Paragraph(f"<b>DOCENTE:</b> {docente_nombre.upper()}<br/><b>C.I:</b> {docente_cedula}", cell_style),
+            Paragraph("<b>ORDINARIO</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
+            Paragraph("<b>REPARACIÓN I</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
+            Paragraph("<b>REPARACIÓN II</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style)
+        ]
+    ]
+    
+    t_firma = Table(firma_data, colWidths=[188, 188, 188, 188]) # Suman 752 pt total
+    t_firma.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 10), 
+    ]))
+    
+    # Posicionar el bloque de firmas fijo en la parte inferior de cada página (ej. a 20 pt del borde inferior)
+    t_firma.wrapOn(canvas, 752, 100)
+    t_firma.drawOn(canvas, 20, 20)
+
+    canvas.restoreState()
+
+  # Configurar documento en formato horizontal (landscape)
+  # Dejamos topMargin=135 y bottomMargin=65 para dejar espacio exacto a los bloques fijos sin que las tablas de estudiantes los solapen
+  doc = SimpleDocTemplate(
+      filename,
+      pagesize=landscape(letter),
+      rightMargin=20,
+      leftMargin=20,
+      topMargin=135,
+      bottomMargin=65
+  )
+
+  story = []
+
+  # Ordenar estudiantes alfabéticamente por el primer apellido
   estudiantes_ordenados = sorted(
       estudiantes_list, 
       key=lambda x: str(x.get('apellidos', '')).strip().upper()
   )
 
-  # 4. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES
+  # 3. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES (El cuerpo dinámico que fluye entre páginas)
   table_data = [
       [
           Paragraph("N°", header_style),
@@ -165,34 +209,18 @@ def generar_pdf_acta(
       ('SPAN', (3,0), (5,0)), 
       ('SPAN', (6,0), (8,0)), 
       ('SPAN', (9,0), (11,0)),
-      ('TOPPADDING', (0,0), (-1,-1), 2.5),
-      ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+      ('TOPPADDING', (0,0), (-1,-1), 2),
+      ('BOTTOMPADDING', (0,0), (-1,-1), 2),
   ]))
+  
   story.append(t_estudiantes)
-  story.append(Spacer(1, 8))
 
-  # 5. BLOQUE DE FIRMAS AL PIE (Cierre con datos del docente y columnas de evaluación)
-  firma_data = [
-      [
-          Paragraph(f"<b>DOCENTE:</b> {docente_nombre.upper()}<br/><b>C.I:</b> {docente_cedula}", cell_style),
-          Paragraph("<b>ORDINARIO</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
-          Paragraph("<b>REPARACIÓN I</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style),
-          Paragraph("<b>REPARACIÓN II</b><br/>Firma: _____________<br/>Fecha: ____/____/20___", cell_style)
-      ]
-  ]
-  
-  t_firma = Table(firma_data, colWidths=[188, 188, 188, 188]) # Suman 752 pt total
-  t_firma.setStyle(TableStyle([
-      ('VALIGN', (0,0), (-1,-1), 'TOP'),
-      ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-      ('TOPPADDING', (0,0), (-1,-1), 5),
-      ('BOTTOMPADDING', (0,0), (-1,-1), 15), 
-  ]))
-  
-  story.append(KeepTogether([t_firma]))
-
-  # Construir PDF aplicando el encabezado repetitivo en cada página
-  doc.build(story, onFirstPage=agregar_encabezado_repetitivo, onLaterPages=agregar_encabezado_repetitivo)
+  # Construir PDF aplicando los canvas fijos tanto para la primera como para las páginas siguientes
+  doc.build(
+      story, 
+      onFirstPage=lambda c, d: [dibujar_encabezado_fijo(c, d), dibujar_pie_fijo(c, d)], 
+      onLaterPages=lambda c, d: [dibujar_encabezado_fijo(c, d), dibujar_pie_fijo(c, d)]
+  )
 
 
 def render():
@@ -332,7 +360,6 @@ def render():
     st.markdown("### 📋 Verificación Final del Listado (Orden Alfabético por Apellido)")
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
     
-    # Ordenar visualmente el dataframe también por apellido de forma ascendente
     if "apellidos" in df_est.columns:
       df_est = df_est.sort_values(by="apellidos", ascending=True)
 
@@ -375,6 +402,6 @@ def render():
                 file_name=f"Acta_{params['carrera'].split(' - ')[0]}_Trayecto{params['trayecto']}.pdf",
                 mime="application/pdf",
             )
-          st.success("¡PDF generado correctamente con todas las especificaciones institucionales!")
+          st.success("¡PDF generado correctamente con bloques fijos en cada página!")
         else:
           st.error("Debe dejar al menos un estudiante seleccionado.")
