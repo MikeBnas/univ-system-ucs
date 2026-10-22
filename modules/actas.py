@@ -235,25 +235,7 @@ def render():
         "Trayecto", ["I", "II", "III", "IV", "V", "VI"]
     )
 
-  with col_tram:
-    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True, key="radio_tramo_acta")
-    tramo_sel = "No Aplica"
-    if usar_tramo == "Sí":
-      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"], key="sel_tramo_acta")
-
-  # NUEVO: Selector opcional de ASIC en Parámetros Académicos
-  st.markdown("---")
-  usar_asic = st.radio("¿Seleccionar estudiantes por ASIC?", ["No", "Sí"], horizontal=True, key="radio_asic_actas")
-  asic_sel = "No Aplica"
-  
-  if usar_asic == "Sí":
-    asics_registradas = [str(a).strip() for a in db["inscripciones_historial"].distinct("asic") if a]
-    if asics_registradas:
-      asic_sel = st.selectbox("Seleccione la ASIC", asics_registradas, key="sel_asic_dropdown")
-    else:
-      asic_sel = st.text_input("Ingrese el nombre de la ASIC", key="txt_asic_input")
-
-  # 4. Filtrado de Materias
+   # 4. Filtrado de Materias
   trayectos_a_buscar = [trayecto_sel, f"Trayecto {trayecto_sel}"]
   materias_cursor = list(
       db["materias"].find(
@@ -280,6 +262,25 @@ def render():
         f"⚠️ No hay materias registradas para esta carrera en el trayecto {trayecto_sel}."
     )
     materia_sel = None
+
+  # NUEVO: Selector opcional de ASIC en Parámetros Académicos
+  st.markdown("---")
+
+  with col_tram:
+    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True, key="radio_tramo_acta")
+    tramo_sel = "No Aplica"
+    if usar_tramo == "Sí":
+      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"], key="sel_tramo_acta")
+        
+  usar_asic = st.radio("¿Seleccionar estudiantes por ASIC?", ["No", "Sí"], horizontal=True, key="radio_asic_actas")
+  asic_sel = "No Aplica"
+  
+  if usar_asic == "Sí":
+    asics_registradas = [str(a).strip() for a in db["inscripciones_historial"].distinct("asic") if a]
+    if asics_registradas:
+      asic_sel = st.selectbox("Seleccione la ASIC", asics_registradas, key="sel_asic_dropdown")
+    else:
+      asic_sel = st.text_input("Ingrese el nombre de la ASIC", key="txt_asic_input")
 
   st.markdown("---")
   st.markdown("### 2. Datos del Docente Responsable")
