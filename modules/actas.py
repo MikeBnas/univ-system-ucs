@@ -228,22 +228,6 @@ def render():
 
   cod_pnf_limpio = carrera_sel.split(" - ")[0] if " - " in carrera_sel else carrera_sel
 
-   nombres_materias = (
-      [f"{m.get('cod_materia', '')} - {m.get('nombre_materia', '')}" for m in materias_cursor]
-      if materias_cursor
-      else []
-  )
-
-  if nombres_materias:
-    materia_sel = st.selectbox(
-        "Asignatura / Unidad Curricular", nombres_materias
-    )
-  else:
-    st.warning(
-        f"⚠️ No hay materias registradas para esta carrera en el trayecto {trayecto_sel}."
-    )
-    materia_sel = None
-
   # 3. Selección del Trayecto, Tramo y ASIC
   col_tray, col_tram = st.columns(2)
   with col_tray:
@@ -280,6 +264,22 @@ def render():
           {"_id": 0},
       )
   )
+
+  nombres_materias = (
+      [f"{m.get('cod_materia', '')} - {m.get('nombre_materia', '')}" for m in materias_cursor]
+      if materias_cursor
+      else []
+  )
+
+  if nombres_materias:
+    materia_sel = st.selectbox(
+        "Asignatura / Unidad Curricular", nombres_materias
+    )
+  else:
+    st.warning(
+        f"⚠️ No hay materias registradas para esta carrera en el trayecto {trayecto_sel}."
+    )
+    materia_sel = None
 
   st.markdown("---")
   st.markdown("### 2. Datos del Docente Responsable")
