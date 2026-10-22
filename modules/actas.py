@@ -13,20 +13,30 @@ def generar_pdf_acta(
     carrera,
     materia,
     trayecto,
+    tramo,
     anio_academico,
     docente_nombre,
     docente_cedula,
     estudiantes_list,
 ):
-  """Genera el acta de notas oficial con el título de acta y la alineación perfecta de firmas por evaluación"""
+  """Genera el acta de notas oficial con imagen en cada página, orden alfabético y bloque de firmas cerrado"""
   
-  # Configurar documento en formato horizontal (landscape) con márgenes de 20 pt (ancho útil = 752 pt)
+  # Función callback para repetir la imagen de encabezado en cada nueva página
+  def agregar_encabezado_repetitivo(canvas, doc_obj):
+    canvas.saveState()
+    logo_path = "encabezado.jpeg"
+    if os.path.exists(logo_path):
+      # Dibujar imagen en el margen superior de cada página (ancho 752 pt, altura 45 pt)
+      canvas.drawImage(logo_path, 20, letter[0] - 65, width=752, height=45)
+    canvas.restoreState()
+
+  # Configurar documento en formato horizontal (landscape) con márgenes adecuados
   doc = SimpleDocTemplate(
       filename,
       pagesize=landscape(letter),
       rightMargin=20,
       leftMargin=20,
-      topMargin=20,
+      topMargin=60,  # Margen superior reservado para la imagen repetitiva
       bottomMargin=20
   )
 
@@ -70,18 +80,14 @@ def generar_pdf_acta(
       alignment=0
   )
 
-  # 1. ENCABEZADO INSTITUCIONAL CON IMAGEN Y TÍTULOS OFICIALES
-  if os.path.exists("encabezado.jpeg"):
-    img = Image("encabezado.jpeg", width=752, height=45)
-    story.append(img)
-    story.append(Spacer(1, 3))
-
+  # 1. TÍTULOS OFICIALES (La imagen se dibuja automáticamente en cada página con onFirstPage/onLaterPages)
   story.append(Paragraph("MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN UNIVERSITARIA CIENCIA Y TECNOLOGÍA", ministerio_style))
   story.append(Spacer(1, 2))
   story.append(Paragraph("ACTA DE EXAMEN", acta_title_style))
   story.append(Spacer(1, 6))
 
-  # 2. DATOS GENERALES (Carrera, Materia, Trayecto, Curso, Estado, Municipio, ASIC)
+  # 2. DATOS GENERALES (Con el nuevo campo de TRAMO incluido)
+  trayecto_tramo_txt = f"{trayecto.upper()} - Tramo {tramo}" if tramo != "No Aplica" else trayecto.upper()
   info_data = [
       [
           Paragraph(f"<b>CARRERA / PNF:</b> {carrera.upper()}", cell_style),
@@ -89,7 +95,7 @@ def generar_pdf_acta(
       ],
       [
           Paragraph(f"<b>ASIGNATURA O UNIDAD CURRICULAR:</b> {materia.upper()}", cell_style),
-          Paragraph(f"<b>TRAYECTO:</b> {trayecto.upper()}", cell_style)
+          Paragraph(f"<b>TRAYECTO / TRAMO:</b> {trayecto_tramo_txt}", cell_style)
       ],
       [
           Paragraph("<b>ESTADO:</b> Barinas", cell_style),
@@ -107,7 +113,13 @@ def generar_pdf_acta(
   story.append(t_info)
   story.append(Spacer(1, 6))
 
-  # 3. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES
+  # 3. ORDENAR ESTUDIANTES ALFABÉTICAMENTE POR EL PRIMER APELLIDO
+  estudiantes_ordenados = sorted(
+      estudiantes_list, 
+      key=lambda x: str(x.get('apellidos', '')).strip().upper()
+  )
+
+  # 4. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES
   table_data = [
       [
           Paragraph("N°", header_style),
@@ -125,7 +137,7 @@ def generar_pdf_acta(
       ]
   ]
 
-  for idx, est in enumerate(estudiantes_list, 1):
+  for idx, est in enumerate(estudiantes_ordenados, 1):
     nombre_completo = f"{est.get('apellidos', '').upper()}, {est.get('nombres', '').upper()}"
     table_data.append([
         Paragraph(str(idx), cell_style),
@@ -136,7 +148,6 @@ def generar_pdf_acta(
         Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style)
     ])
 
-  # Anchos de columna exactos que suman 752 pt en total
   t_estudiantes = Table(
       table_data, 
       colWidths=[22, 190, 66, 52, 52, 52, 52, 52, 52, 52, 52, 58],
@@ -160,7 +171,7 @@ def generar_pdf_acta(
   story.append(t_estudiantes)
   story.append(Spacer(1, 8))
 
-  # 4. BLOQUE DE FIRMAS AL PIE (Datos del docente y columnas exactas de firma por evaluación)
+  # 5. BLOQUE DE FIRMAS AL PIE (Cierre con datos del docente y columnas de evaluación)
   firma_data = [
       [
           Paragraph(f"<b>DOCENTE:</b> {docente_nombre.upper()}<br/><b>C.I:</b> {docente_cedula}", cell_style),
@@ -180,8 +191,8 @@ def generar_pdf_acta(
   
   story.append(KeepTogether([t_firma]))
 
-  # Construir PDF
-  doc.build(story)
+  # Construir PDF aplicando el encabezado repetitivo en cada página
+  doc.build(story, onFirstPage=agregar_encabezado_repetitivo, onLaterPages=agregar_encabezado_repetitivo)
 
 
 def render():
@@ -213,12 +224,18 @@ def render():
 
   cod_pnf_limpio = carrera_sel.split(" - ")[0] if " - " in carrera_sel else carrera_sel
 
-  # 3. Selección del Trayecto
-  col_tray, col_mat = st.columns(2)
+  # 3. Selección del Trayecto y Tramo
+  col_tray, col_tram = st.columns(2)
   with col_tray:
     trayecto_sel = st.selectbox(
         "Trayecto", ["I", "II", "III", "IV", "V", "VI"]
     )
+
+  with col_tram:
+    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True)
+    tramo_sel = "No Aplica"
+    if usar_tramo == "Sí":
+      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"])
 
   # 4. Filtrado de Materias
   trayectos_a_buscar = [trayecto_sel, f"Trayecto {trayecto_sel}"]
@@ -238,16 +255,15 @@ def render():
       else []
   )
 
-  with col_mat:
-    if nombres_materias:
-      materia_sel = st.selectbox(
-          "Asignatura / Unidad Curricular", nombres_materias
-      )
-    else:
-      st.warning(
-          f"⚠️ No hay materias registradas para esta carrera en el trayecto {trayecto_sel}."
-      )
-      materia_sel = None
+  if nombres_materias:
+    materia_sel = st.selectbox(
+        "Asignatura / Unidad Curricular", nombres_materias
+    )
+  else:
+    st.warning(
+        f"⚠️ No hay materias registradas para esta carrera en el trayecto {trayecto_sel}."
+    )
+    materia_sel = None
 
   st.markdown("---")
   st.markdown("### 2. Datos del Docente Responsable")
@@ -299,6 +315,7 @@ def render():
               "carrera": carrera_sel,
               "materia": materia_sel,
               "trayecto": trayecto_sel,
+              "tramo": tramo_sel,
               "anio": anio_academico,
               "docente_nombre": docente_nombre,
               "docente_cedula": docente_cedula,
@@ -312,10 +329,14 @@ def render():
         st.session_state["acta_estudiantes"] = []
 
   if "acta_estudiantes" in st.session_state and st.session_state["acta_estudiantes"]:
-    st.markdown("### 📋 Verificación Final del Listado")
+    st.markdown("### 📋 Verificación Final del Listado (Orden Alfabético por Apellido)")
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
-    df_est["Incluir en Acta"] = True
+    
+    # Ordenar visualmente el dataframe también por apellido de forma ascendente
+    if "apellidos" in df_est.columns:
+      df_est = df_est.sort_values(by="apellidos", ascending=True)
 
+    df_est["Incluir en Acta"] = True
     cols = ["Incluir en Acta"] + [col for col in df_est.columns if col != "Incluir en Acta"]
     df_est = df_est[cols]
 
@@ -340,6 +361,7 @@ def render():
               params["carrera"],
               params["materia"],
               params["trayecto"],
+              params["tramo"],
               params["anio"],
               params["docente_nombre"],
               params["docente_cedula"],
@@ -353,6 +375,6 @@ def render():
                 file_name=f"Acta_{params['carrera'].split(' - ')[0]}_Trayecto{params['trayecto']}.pdf",
                 mime="application/pdf",
             )
-          st.success("¡PDF generado correctamente y listo para abrir e imprimir!")
+          st.success("¡PDF generado correctamente con todas las especificaciones institucionales!")
         else:
           st.error("Debe dejar al menos un estudiante seleccionado.")
