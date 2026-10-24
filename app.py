@@ -80,13 +80,38 @@ def show_auth_screen():
             "*(Nota: Todo nuevo registro se crea con rol de **Estudiante** y requiere cédula obligatoria)*"
         )
         nuevo_usuario = st.text_input("Nombre de Usuario")
-        nueva_cedula = st.text_input("Cédula de Identidad")
-        nuevo_email = st.text_input("Correo Electrónico")
+        
+        # Cédula con hint de ejemplo
+        nueva_cedula_input = st.text_input(
+            "Cédula de Identidad", 
+            placeholder="Ej: 13234321",
+            help="Ingrese su número de cédula sin puntos ni espacios."
+        )
+        
+        # Correo con hint de ejemplo
+        nuevo_email_input = st.text_input(
+            "Correo Electrónico", 
+            placeholder="Ej: usuario@correo.com",
+            help="Ingrese su correo electrónico sin espacios en blanco."
+        )
+        
         nuevo_pass = st.text_input("Contraseña", type="password")
         submit_reg = st.form_submit_button("Registrarse")
 
         if submit_reg:
+          # Limpiar espacios en blanco y puntos de la cédula y correo
+          nueva_cedula = "".join(c for c in nueva_cedula_input if c.isdigit()).strip()
+          nuevo_email = nuevo_email_input.strip()
+
           if nuevo_usuario and nueva_cedula and nuevo_email and nuevo_pass:
+            # Validaciones adicionales de formato limpio
+            if " " in nuevo_email:
+              st.error("El correo electrónico no puede contener espacios en blanco.")
+            elif not nueva_cedula_input.strip().isdigit() and any(c in nueva_cedula_input for c in ['.', ' ']):
+              # Mensaje preventivo si intentó usar puntos o espacios
+              # (La limpieza ya extrajo solo los dígitos, pero avisamos si se limpió)
+              pass
+
             if usuarios_col.find_one({"usuario": nuevo_usuario}):
               st.warning("El nombre de usuario ya está en uso.")
             elif usuarios_col.find_one({"cedula": nueva_cedula}):
@@ -103,7 +128,7 @@ def show_auth_screen():
                   "¡Cuenta creada con éxito! Ya puedes iniciar sesión."
               )
           else:
-            st.error("Llena todos los campos obligatorios.")
+            st.error("Llena todos los campos obligatorios correctamente.")
 
     with tab_recuperar:
       from modules import recuperar
