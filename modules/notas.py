@@ -457,15 +457,29 @@ def render():
           st.markdown("---")
           st.markdown("### 👑 Funciones Avanzadas de Administrador")
 
-          st.markdown("#### ✏️ Editar Nota Existente")
+          st.markdown("#### ✏️ Editar o Eliminar Nota Existente")
           with st.form("form_editar_nota"):
-            cedula_edit = st.text_input("Cédula del estudiante a editar").strip()
-            mat_edit = st.text_input("Código de la materia a editar").strip()
-            tramo_edit = st.selectbox("Tramo (si aplica)", ["Ninguno", "I", "II", "III"])
-            nueva_nota = st.number_input(
-                "Nueva Nota", min_value=0.0, max_value=20.0, step=0.5
-            )
-            btn_actualizar = st.form_submit_button("Actualizar Nota")
+            col_e1, col_e2 = st.columns(2)
+            with col_e1:
+              cedula_edit = st.text_input("Cédula del estudiante a editar").strip()
+              mat_edit = st.text_input("Código de la materia a editar").strip()
+              tramo_edit = st.selectbox("Tramo (si aplica)", ["Ninguno", "I", "II", "III"])
+              nueva_nota = st.number_input(
+                  "Nueva Nota", min_value=0.0, max_value=20.0, step=0.5
+              )
+            with col_e2:
+              nuevo_docente = st.text_input("Nuevo Docente", value=usuario_actual).strip()
+              nuevo_anio = st.selectbox("Nuevo Año Académico / Fecha", [str(y) for y in range(2026, 2018, -1)])
+              nuevo_tipo_eval = st.selectbox(
+                  "Nuevo Tipo de Evaluación",
+                  ["Ordinario", "Reparación I", "Reparación II"],
+              )
+
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+              btn_actualizar = st.form_submit_button("Actualizar Nota", type="primary")
+            with col_btn2:
+              btn_eliminar = st.form_submit_button("🗑️ Eliminar Nota", type="secondary")
 
             if btn_actualizar:
               c_str = cedula_edit
@@ -478,19 +492,49 @@ def render():
 
               res = notas_col.update_one(
                   q_edit,
-                  {"$set": {"nota": nueva_nota}},
+                  {
+                      "$set": {
+                          "nota": nueva_nota,
+                          "docente": nuevo_docente,
+                          "anio": nuevo_anio,
+                          "tipo_evaluacion": nuevo_tipo_eval,
+                          "fecha_registro": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                      }
+                  },
               )
-              if res.modified_count > 0:
+              if res.modified_count > 0 or res.matched_count > 0:
                 registrar_log(
                     db,
                     usuario_actual,
                     "EDITAR_NOTA",
-                    f"Actualizada nota a {nueva_nota} para cédula {cedula_edit} en materia {mat_edit} (Tramo: {tramo_edit})",
+                    f"Actualizada nota para cédula {cedula_edit} en materia {mat_edit} (Docente: {nuevo_docente}, Año: {nuevo_anio}, Tipo: {nuevo_tipo_eval})",
                 )
-                st.success("¡Nota actualizada correctamente!")
+                st.success("¡Nota y campos actualizados correctamente!")
+                st.rerun()
               else:
                 st.warning("No se encontró el registro exacto para actualizar.")
 
+            if btn_eliminar:
+              c_str = cedula_edit
+              c_int = int(c_str) if c_str.isdigit() else None
+              q_del = {"$or": [{"cedula": c_str}]}
+              if c_int is not None:
+                q_del["$or"].append({"cedula": c_int})
+              q_del["cod_materia"] = mat_edit
+              q_del["tramo"] = None if tramo_edit == "Ninguno" else tramo_edit
+
+              res_del = notas_col.delete_one(q_del)
+              if res_del.deleted_count > 0:
+                registrar_log(
+                    db,
+                    usuario_actual,
+                    "ELIMINAR_NOTA",
+                    f"Eliminada nota para cédula {cedula_edit} en materia {mat_edit} (Tramo: {tramo_edit})",
+                )
+                st.error("¡La nota ha sido eliminada exitosamente del sistema!")
+                st.rerun()
+              else:
+                st.warning("No se encontró el registro exacto para eliminar.")
           st.markdown("#### 📄 Emitir Recorrido de Notas Oficial (PDF)")
           cedula_pdf = st.text_input(
               "Introduce la cédula para generar el PDF oficial según notas_general"
