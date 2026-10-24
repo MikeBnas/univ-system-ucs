@@ -240,7 +240,7 @@ def render():
   # VISTA 2: ROL ADMINISTRADOR Y DOCENTE
   # ==========================================
   if rol_actual == "Administrador":
-          st.markdown("---")
+    st.markdown("---")
           st.markdown("### 👑 Funciones Avanzadas de Administrador")
 
           st.markdown("#### ✏️ Editar o Eliminar Nota Existente")
@@ -320,7 +320,7 @@ def render():
                 st.error("¡La nota ha sido eliminada exitosamente del sistema!")
                 st.rerun()
               else:
-                st.warning("No se encontró el registro exacto para eliminar.")
+                st.warning("No se encontró el registro exacto para eliminar.") 
       # Mostrar listado de notas cargadas recientemente / por estudiante
       st.markdown("---")
       st.markdown("#### 📋 Consultar Notas por Estudiante")
