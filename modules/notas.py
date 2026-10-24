@@ -239,177 +239,88 @@ def render():
   # ==========================================
   # VISTA 2: ROL ADMINISTRADOR Y DOCENTE
   # ==========================================
-  if rol_actual in ["Administrador", "Docente"]:
-    st.markdown("### 📝 Carga y Gestión de Calificaciones (Admin / Docente)")
+  if rol_actual == "Administrador":
+          st.markdown("---")
+          st.markdown("### 👑 Funciones Avanzadas de Administrador")
 
-    # Pestañas dinámicas según el rol
-    if rol_actual == "Administrador":
-      tab_carga, tab_gestion, tab_solicitudes_notas = st.tabs([
-          "➕ Cargar Nota Individual",
-          "📋 Listado y Gestión de Notas",
-          "📥 Solicitudes Pendientes de Notas"
-      ])
-    else:
-      tab_carga, tab_gestion = st.tabs([
-          "➕ Cargar Nota Individual",
-          "📋 Listado y Gestión de Notas"
-      ])
-      tab_solicitudes_notas = None
+          st.markdown("#### ✏️ Editar o Eliminar Nota Existente")
+          with st.form("form_editar_nota"):
+            col_e1, col_e2 = st.columns(2)
+            with col_e1:
+              cedula_edit = st.text_input("Cédula del estudiante a editar").strip()
+              mat_edit = st.text_input("Código de la materia a editar").strip()
+              tramo_edit = st.selectbox("Tramo (si aplica)", ["Ninguno", "I", "II", "III"])
+              nueva_nota = st.number_input(
+                  "Nueva Nota", min_value=0.0, max_value=20.0, step=0.5
+              )
+            with col_e2:
+              nuevo_docente = st.text_input("Nuevo Docente", value=usuario_actual).strip()
+              nuevo_anio = st.selectbox("Nuevo Año Académico / Fecha", [str(y) for y in range(2026, 2018, -1)])
+              nuevo_tipo_eval = st.selectbox(
+                  "Nuevo Tipo de Evaluación",
+                  ["Ordinario", "Reparación I", "Reparación II"],
+              )
 
-    with tab_carga:
-      st.markdown("#### Buscar Estudiante por Cédula")
-      cedula_buscar = st.text_input(
-          "Introduce la cédula del estudiante a calificar"
-      ).strip()
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+              btn_actualizar = st.form_submit_button("Actualizar Nota", type="primary")
+            with col_btn2:
+              btn_eliminar = st.form_submit_button("🗑️ Eliminar Nota", type="secondary")
 
-      if cedula_buscar:
-        c_str = cedula_buscar
-        c_int = int(c_str) if c_str.isdigit() else None
-        q_est = {"$or": [{"cedula": c_str}]}
-        if c_int is not None:
-          q_est["$or"].append({"cedula": c_int})
+            if btn_actualizar:
+              c_str = cedula_edit
+              c_int = int(c_str) if c_str.isdigit() else None
+              q_edit = {"$or": [{"cedula": c_str}]}
+              if c_int is not None:
+                q_edit["$or"].append({"cedula": c_int})
+              q_edit["cod_materia"] = mat_edit
+              q_edit["tramo"] = None if tramo_edit == "Ninguno" else tramo_edit
 
-        estudiante_encontrado = estudiantes_col.find_one(q_est)
-
-        if estudiante_encontrado:
-          nombre_completo = f"{estudiante_encontrado.get('apellidos', '').upper()}, {estudiante_encontrado.get('nombres', '').upper()}"
-          cedula_encontrada = estudiante_encontrado.get('cedula')
-
-          st.success(
-              f"Vas a cargar nota para: **{nombre_completo}** - Cédula:"
-              f" **{cedula_encontrada}**"
-          )
-
-          carreras_list = list(carreras_col.find({}, {"_id": 0}))
-          nombres_carreras = [
-              f"{c.get('cod_pnf', '')} - {c.get('nombre_pnf', '')}"
-              for c in carreras_list
-          ]
-          carrera_sel = st.selectbox(
-              "Seleccionar Carrera / PNF", nombres_carreras
-          )
-          cod_pnf = (
-              carrera_sel.split(" - ")[0] if " - " in carrera_sel else ""
-          )
-          nombre_pnf_limpio = (
-              carrera_sel.split(" - ")[1] if " - " in carrera_sel else ""
-          )
-
-          trayecto_sel = st.selectbox(
-              "Seleccionar Trayecto", ["I", "II", "III", "IV", "V", "VI"]
-          )
-
-          materias_list = list(
-              materias_col.find(
+              res = notas_col.update_one(
+                  q_edit,
                   {
-                      "cod_pnf": cod_pnf,
-                      "trayecto": {"$in": [trayecto_sel, f"Trayecto {trayecto_sel}"]},
+                      "$set": {
+                          "nota": nueva_nota,
+                          "docente": nuevo_docente,
+                          "anio": nuevo_anio,
+                          "tipo_evaluacion": nuevo_tipo_eval,
+                          "fecha_registro": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                      }
                   },
-                  {"_id": 0},
               )
-          )
-          nombres_materias = [
-              f"{m.get('cod_materia', '')} - {m.get('nombre_materia', '')}"
-              for m in materias_list
-          ]
-
-          if nombres_materias:
-            materia_sel = st.selectbox(
-                "Seleccionar Materia / Unidad Curricular", nombres_materias
-            )
-            cod_materia = (
-                materia_sel.split(" - ")[0] if " - " in materia_sel else ""
-            )
-            nombre_mat_limpio = (
-                materia_sel.split(" - ")[1] if " - " in materia_sel else ""
-            )
-
-            # 1. Selector de modalidad y tramo FUERA del form para que aparezca al instante
-            tipo_eval = st.selectbox(
-                "Tipo de Evaluación",
-                ["Ordinario", "Reparación I", "Reparación II"],
-            )
-
-            modalidad_eval = st.radio(
-                "¿La materia es evaluada por tramos?",
-                ["Normal", "Por Tramo"],
-                horizontal=True,
-                key="modalidad_eval_radio"
-            )
-
-            tramo_sel = None
-            if modalidad_eval == "Por Tramo":
-              tramo_sel = st.selectbox("Seleccionar Tramo", ["I", "II", "III"], key="tramo_selector")
-
-            # 2. Formulario para ingresar la nota final y guardar
-            with st.form("form_guardar_nota_individual"):
-              col_n1, col_n2 = st.columns(2)
-              with col_n1:
-                nota_valor = st.number_input(
-                    "Calificación (0 a 20)",
-                    min_value=0.0,
-                    max_value=20.0,
-                    step=0.5,
-                )
-              with col_n2:
-                anio_fecha = st.selectbox(
-                    "Año Académico / Fecha", [str(y) for y in range(2026, 2018, -1)]
-                )
-                docente_ingresa = st.text_input(
-                    "Nombre del Docente", value=usuario_actual
-                )
-
-              btn_guardar = st.form_submit_button(
-                  "💾 Guardar Calificación", type="primary"
-              )
-
-              if btn_guardar:
-                es_por_tramo = (modalidad_eval == "Por Tramo")
-                doc_nota = {
-                    "cedula": str(cedula_encontrada),
-                    "cod_materia": cod_materia,
-                    "nombre_materia": nombre_mat_limpio,
-                    "trayecto": trayecto_sel,
-                    "es_por_tramo": es_por_tramo,
-                    "tramo": tramo_sel if es_por_tramo else None,
-                    "nota": nota_valor,
-                    "tipo_evaluacion": tipo_eval,
-                    "docente": docente_ingresa,
-                    "anio": anio_fecha,
-                    "fecha_registro": datetime.utcnow().strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
-                }
-
-                # Criterio de actualización considerando el tramo
-                filtro_query = {
-                    "cedula": str(cedula_encontrada),
-                    "cod_materia": cod_materia,
-                    "tipo_evaluacion": tipo_eval,
-                    "tramo": tramo_sel if es_por_tramo else None
-                }
-
-                notas_col.update_one(
-                    filtro_query,
-                    {"$set": doc_nota},
-                    upsert=True,
-                )
-
+              if res.modified_count > 0 or res.matched_count > 0:
                 registrar_log(
                     db,
                     usuario_actual,
-                    "CARGAR_NOTA",
-                    f"Cargada nota {nota_valor} en {cod_materia} (Tramo: {tramo_sel if es_por_tramo else 'N/A'}) para cédula {cedula_encontrada}",
+                    "EDITAR_NOTA",
+                    f"Actualizada nota para cédula {cedula_edit} en materia {mat_edit} (Docente: {nuevo_docente}, Año: {nuevo_anio}, Tipo: {nuevo_tipo_eval})",
                 )
+                st.success("¡Nota y campos actualizados correctamente!")
+                st.rerun()
+              else:
+                st.warning("No se encontró el registro exacto para actualizar.")
 
-                st.success("¡Calificación guardada exitosamente!")
-          else:
-            st.warning(
-                "No hay materias registradas para este PNF y trayecto."
-            )
-        else:
-          st.error("No se encontró ningún estudiante con esa cédula.")
+            if btn_eliminar:
+              c_str = cedula_edit
+              c_int = int(c_str) if c_str.isdigit() else None
+              q_del = {"$or": [{"cedula": c_str}]}
+              if c_int is not None:
+                q_del["$or"].append({"cedula": c_int})
+              q_del["cod_materia"] = mat_edit
+              q_del["tramo"] = None if tramo_edit == "Ninguno" else tramo_edit
 
+              res_del = notas_col.delete_one(q_del)
+              if res_del.deleted_count > 0:
+                registrar_log(
+                    db,
+                    usuario_actual,
+                    "ELIMINAR_NOTA",
+                    f"Eliminada nota para cédula {cedula_edit} en materia {mat_edit} (Tramo: {tramo_edit})",
+                )
+                st.error("¡La nota ha sido eliminada exitosamente del sistema!")
+                st.rerun()
+              else:
+                st.warning("No se encontró el registro exacto para eliminar.")
       # Mostrar listado de notas cargadas recientemente / por estudiante
       st.markdown("---")
       st.markdown("#### 📋 Consultar Notas por Estudiante")
