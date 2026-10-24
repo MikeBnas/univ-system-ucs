@@ -44,29 +44,31 @@ def render():
     if not correo_ingresado:
       st.error("Por favor, introduce un correo electrónico.")
     else:
-      # Buscar usuario por correo en MongoDB
-      usuario = usuarios_col.find_one({"correo": correo_ingresado})
+      # Buscar usuario por correo o email en MongoDB de forma flexible
+      usuario = usuarios_col.find_one({
+          "$or": [{"correo": correo_ingresado}, {"email": correo_ingresado}]
+      })
 
       if usuario:
         # Generar token de 6 caracteres y fecha de expiración (15 minutos)
         token = generar_codigo_aleatorio()
         expiracion = datetime.utcnow() + timedelta(minutes=15)
 
+        # Identificar qué campo de correo usa el documento encontrado
+        filtro_correo = usuario.get("email", usuario.get("email", correo_ingresado))
+
         # Guardar el token temporal y su expiración en el documento del usuario
         usuarios_col.update_one(
-            {'correo': correo_obj},
+            {"$or": [{"correo": filtro_correo}, {"email": filtro_correo}]},
             {
-                '$set': {
-                    'password': hash_password(
-                        nueva_pass
-                    )  # <--- Contraseña nueva cifrada
-                },
-                '$unset': {'reset_token': '', 'reset_expiracion': ''},
+                "$set": {
+                    "reset_token": token,
+                    "reset_expiracion": expiracion,
+                }
             },
         )
 
         # Estructurar el correo electrónico usando Resend
-        # Nota: En el plan gratuito de Resend puedes enviar desde 'onboarding@resend.dev'
         params = {
             "from": "Sistema Académico <onboarding@resend.dev>",
             "to": [correo_ingresado],
@@ -117,7 +119,9 @@ def render():
 
     if btn_cambiar:
       correo_obj = st.session_state.get("correo_recuperando")
-      user_data = usuarios_col.find_one({"correo": correo_obj})
+      user_data = usuarios_col.find_one({
+          "$or": [{"correo": correo_obj}, {"email": correo_obj}]
+      })
 
       if not user_data:
         st.error("Sesión de recuperación inválida. Vuelve a intentarlo.")
@@ -140,12 +144,13 @@ def render():
       elif len(nueva_pass) < 6:
         st.error("La contraseña debe tener al menos 6 caracteres.")
       else:
-        # Actualizar contraseña en MongoDB (Nota: si usas hash, asegúrate de encriptarla aquí igual que en tu registro)
-        # Asumiendo texto plano o tu función de cifrado actual:
+        # Actualizar contraseña cifrada con hash en MongoDB y limpiar tokens
+        filtro_update = user_data.get("correo", user_data.get("email", correo_obj))
+        
         usuarios_col.update_one(
-            {"correo": correo_obj},
+            {"$or": [{"correo": filtro_update}, {"email": filtro_update}]},
             {
-                "$set": {"password": nueva_pass},
+                "$set": {"password": hash_password(nueva_pass)},
                 "$unset": {"reset_token": "", "reset_expiracion": ""},
             },
         )
