@@ -151,9 +151,9 @@ def generar_pdf_acta(
       ],
       [
           "", "", "",  
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style),
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style),
-          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("TOTAL", header_style)
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style),
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style),
+          Paragraph("FIRMA", header_style), Paragraph("EXAMEN", header_style), Paragraph("FINAL", header_style)
       ]
   ]
 
@@ -208,6 +208,27 @@ def render():
 
   db = get_db()
 
+  # Listado fijo de ASIC
+  LISTA_ASIC = [
+      "Asic Alberto Arvelo Torrealba (Jose Gregorio Hernandez)",
+      "Asic Andres Eloy Blanco",
+      "Asic Antonio Jose De Sucre",
+      "Asic Arismendi",
+      "Asic Bolivar",
+      "Asic Corazon De Jesus",
+      "Asic Cruz Paredes",
+      "Asic El Carmen",
+      "Asic Ezequiel Zamora",
+      "Asic Guanapa (Romulo Betancourt)",
+      "Asic Manuel Palacio Fajardo",
+      "Asic Obispo (Virgen Del Real)",
+      "Asic Pedraza (Ciudad Bolivia)",
+      "Asic Ramon Ignacio Mendez",
+      "Asic Rojas",
+      "Asic San Silvestre",
+      "Asic Sosa"
+  ]
+
   # 1. Selección del Año Académico
   st.markdown("### 1. Parámetros Académicos")
   col_anio, col_car = st.columns(2)
@@ -235,7 +256,13 @@ def render():
         "Trayecto", ["I", "II", "III", "IV", "V", "VI"]
     )
 
-   # 4. Filtrado de Materias
+  with col_tram:
+    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True, key="radio_tramo_acta")
+    tramo_sel = "No Aplica"
+    if usar_tramo == "Sí":
+      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"], key="sel_tramo_acta")
+
+  # 4. Filtrado de Materias
   trayectos_a_buscar = [trayecto_sel, f"Trayecto {trayecto_sel}"]
   materias_cursor = list(
       db["materias"].find(
@@ -263,24 +290,13 @@ def render():
     )
     materia_sel = None
 
-  # NUEVO: Selector opcional de ASIC en Parámetros Académicos
+  # Selector opcional de ASIC en Parámetros Académicos
   st.markdown("---")
-
-  with col_tram:
-    usar_tramo = st.radio("¿La materia se evalúa por tramos?", ["No", "Sí"], horizontal=True, key="radio_tramo_acta")
-    tramo_sel = "No Aplica"
-    if usar_tramo == "Sí":
-      tramo_sel = st.selectbox("Seleccione el Tramo", ["I", "II", "III"], key="sel_tramo_acta")
-        
   usar_asic = st.radio("¿Seleccionar estudiantes por ASIC?", ["No", "Sí"], horizontal=True, key="radio_asic_actas")
   asic_sel = "No Aplica"
   
   if usar_asic == "Sí":
-    asics_registradas = [str(a).strip() for a in db["inscripciones_historial"].distinct("asic") if a]
-    if asics_registradas:
-      asic_sel = st.selectbox("Seleccione la ASIC", asics_registradas, key="sel_asic_dropdown")
-    else:
-      asic_sel = st.text_input("Ingrese el nombre de la ASIC", key="txt_asic_input")
+    asic_sel = st.selectbox("Seleccione la ASIC", LISTA_ASIC, key="sel_asic_dropdown")
 
   st.markdown("---")
   st.markdown("### 2. Datos del Docente Responsable")
@@ -300,7 +316,6 @@ def render():
     if not materia_sel:
       st.error("Seleccione una materia válida.")
     else:
-      # Armar consulta en inscripciones_historial incluyendo el filtro opcional de ASIC
       query_insc = {
           "cod_pnf": cod_pnf_limpio,
           "trayecto": {"$in": [trayecto_sel, f"Trayecto {trayecto_sel}"]},
@@ -311,9 +326,15 @@ def render():
 
       inscripciones = list(db["inscripciones_historial"].find(query_insc, {"_id": 0}))
 
-      if inscripciones:
-        cedulas_inscritas = [str(i["cedula"]).strip() for i in inscripciones]
+      # Buscar también por el parámetro 'asic' en la colección usuarios si aplica
+      cedulas_de_usuarios = []
+      if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
+        usuarios_asic = list(db["usuarios"].find({"asic": asic_sel}, {"_id": 0, "cedula": 1}))
+        cedulas_de_usuarios = [str(u["cedula"]).strip() for u in usuarios_asic if "cedula" in u]
 
+      cedulas_inscritas = list(set([str(i["cedula"]).strip() for i in inscripciones if "cedula" in i] + cedulas_de_usuarios))
+
+      if cedulas_inscritas:
         estudiantes_encontrados = list(
             db["estudiantes"].find(
                 {
