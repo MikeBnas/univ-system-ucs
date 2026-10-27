@@ -368,6 +368,37 @@ def render():
         st.session_state["acta_estudiantes"] = []
 
   if "acta_estudiantes" in st.session_state and st.session_state["acta_estudiantes"]:
+    st.markdown("---")
+    st.markdown("#### ➕ Agregar estudiante por número de cédula")
+    cedula_manual = st.text_input("Ingrese el número de cédula del estudiante:")
+    
+    if st.button("Buscar estudiante"):
+      if cedula_manual:
+        est_encontrado = db["estudiantes"].find_one({
+            "$or": [
+                {"cedula": cedula_manual.strip()},
+                {"cedula": int(cedula_manual.strip()) if cedula_manual.strip().isdigit() else None}
+            ]
+        }, {"_id": 0})
+        
+        if est_encontrado:
+          st.session_state["estudiante_pendiente_agregar"] = est_encontrado
+        else:
+          st.warning("No se encontró ningún estudiante con esa cédula.")
+
+    if "estudiante_pendiente_agregar" in st.session_state:
+      est_temp = st.session_state["estudiante_pendiente_agregar"]
+      st.info(f"Estudiante encontrado: **{est_temp.get('apellidos', '')}, {est_temp.get('nombres', '')}** (C.I: {est_temp.get('cedula', '')})")
+      if st.button("Confirmar agregar al listado de acta"):
+        cedulas_actuales = [str(e.get("cedula")) for e in st.session_state["acta_estudiantes"]]
+        if str(est_temp.get("cedula")) not in cedulas_actuales:
+          st.session_state["acta_estudiantes"].append(est_temp)
+          del st.session_state["estudiante_pendiente_agregar"]
+          st.rerun()
+        else:
+          st.warning("El estudiante ya está en el listado.")
+          del st.session_state["estudiante_pendiente_agregar"]
+
     st.markdown("### 📋 Verificación Final del Listado (Orden Alfabético por Apellido)")
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
     
