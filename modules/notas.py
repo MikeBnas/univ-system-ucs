@@ -197,6 +197,7 @@ def generar_pdf_constancia_notas(filename, estudiante, notas_list, carrera_nombr
 
   doc.build(story)
 
+
 def generar_pdf_pase_trayecto(filename, estudiante, notas_list, carrera_nombre, trayecto, asic=""):
   """Genera el documento Pase de Año / Trayecto utilizando el formato institucional."""
   doc = SimpleDocTemplate(
@@ -394,10 +395,11 @@ def render():
 
     # Pestañas dinámicas según el rol
     if rol_actual == "Administrador":
-      tab_carga, tab_gestion, tab_solicitudes_notas = st.tabs([
+      tab_carga, tab_gestion, tab_solicitudes_notas, tab_pase_ano = st.tabs([
           "➕ Cargar Nota Individual",
           "📋 Listado y Gestión de Notas",
-          "📥 Solicitudes Pendientes de Notas"
+          "📥 Solicitudes Pendientes de Notas",
+          "🎓 Pase de Año"
       ])
     else:
       tab_carga, tab_gestion = st.tabs([
@@ -405,6 +407,7 @@ def render():
           "📋 Listado y Gestión de Notas"
       ])
       tab_solicitudes_notas = None
+      tab_pase_ano = None
 
     with tab_carga:
       st.markdown("#### Buscar Estudiante por Cédula")
@@ -741,7 +744,7 @@ def render():
       else:
         st.info("No hay notas registradas en el sistema bajo este criterio.")
 
-    # Pestaña exclusiva para Administrador
+    # Pestaña exclusiva para Administrador (Solicitudes)
     if tab_solicitudes_notas is not None:
       with tab_solicitudes_notas:
         st.markdown("#### 📥 Estudiantes en Listado de Generación de Notas")
@@ -807,8 +810,8 @@ def render():
                 st.warning("Este estudiante aún no tiene calificaciones cargadas.")
         else:
           st.info("No hay solicitudes pendientes en el listado de generación de notas actualmente.")
-
-      # Nueva pestaña exclusiva para Administrador (Pase de Año)
+          
+    # Nueva pestaña exclusiva para Administrador (Pase de Año)
     if tab_pase_ano is not None:
       with tab_pase_ano:
         st.markdown("#### 🎓 Generación de Documento Pase de Año / Trayecto")
