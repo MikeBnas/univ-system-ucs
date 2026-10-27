@@ -197,6 +197,156 @@ def generar_pdf_constancia_notas(filename, estudiante, notas_list, carrera_nombr
 
   doc.build(story)
 
+def generar_pdf_pase_trayecto(filename, estudiante, notas_list, carrera_nombre, trayecto, asic=""):
+  """Genera el documento Pase de Año / Trayecto utilizando el formato institucional."""
+  doc = SimpleDocTemplate(
+      filename,
+      pagesize=letter,
+      rightMargin=30,
+      leftMargin=30,
+      topMargin=25,
+      bottomMargin=25,
+  )
+
+  story = []
+  styles = getSampleStyleSheet()
+
+  title_style = ParagraphStyle(
+      'TitleStyle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1
+  )
+
+  info_style = ParagraphStyle(
+      'InfoStyle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=0
+  )
+
+  table_header = ParagraphStyle(
+      'TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=1
+  )
+
+  table_cell = ParagraphStyle(
+      'TableCell', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, alignment=1
+  )
+
+  # Encabezado con Logo (Pase de año)
+  logo_path = "encabezado_pase.png"
+  if os.path.exists(logo_path):
+    img = Image(logo_path, width=540, height=65) 
+    story.append(img)
+    story.append(Spacer(1, 10))
+
+  # Títulos
+  story.append(Paragraph("Universidad de las Ciencias de la Salud \"Hugo Chávez Frías\"", title_style))
+  story.append(Paragraph(f"P.N.F {carrera_nombre.upper()}", title_style))
+  story.append(Spacer(1, 8))
+  story.append(Paragraph(f"RESULTADOS DE LAS CALIFICACIONES OBTENIDAS EN EL TRAYECTO {trayecto.upper()} ACADÉMICO {carrera_nombre.upper()}", title_style))
+  story.append(Spacer(1, 12))
+
+  # Información del Estudiante
+  nombre_est = estudiante.get('nombres', '').upper()
+  apellido_est = estudiante.get('apellidos', '').upper()
+  cedula_est = estudiante.get('cedula', '')
+
+  texto_info = f"""
+  TRAYECTO ACADÉMICO: {trayecto.upper()}<br/>
+  CÉDULA DE IDENTIDAD: {cedula_est}<br/>
+  ESTADO: BARINAS<br/>
+  MUNICIPIO: BARINAS<br/>
+  ASIC (Circuito): {asic.upper()}<br/>
+  APELLIDOS: {apellido_est}<br/>
+  NOMBRES: {nombre_est}
+  """
+  story.append(Paragraph(texto_info, info_style))
+  story.append(Spacer(1, 12))
+
+  # Tabla de Calificaciones
+  table_data = [[
+      Paragraph("TRAMO", table_header),
+      Paragraph("ASIGNATURAS", table_header),
+      Paragraph("CERTIFICATIVA", table_header),
+      Paragraph("REPARACIÓN I", table_header),
+      Paragraph("REPARACIÓN II", table_header),
+      Paragraph("FINAL", table_header),
+  ]]
+
+  # Agrupamos notas por tramos (PRIMERO, SEGUNDO, TERCERO)
+  tramos_estructura = ["I", "II", "III"]
+  nombres_tramos = {"I": "PRIMERO", "II": "SEGUNDO", "III": "TERCERO"}
+
+  for t in tramos_estructura:
+      notas_tramo = [n for n in notas_list if n.get("tramo") == t]
+      
+      # Si no hay materias para este tramo, agregamos una fila en blanco para mantener la estructura
+      if not notas_tramo:
+          notas_tramo = [{"nombre_materia": "------------------", "nota": "", "tipo_evaluacion": ""}]
+          
+      for idx, n in enumerate(notas_tramo):
+          tramo_label = nombres_tramos[t] if idx == 0 else ""
+
+          cert = str(n.get("nota", "")) if n.get("tipo_evaluacion", "") in ["Ordinario", ""] else ""
+          rep1 = str(n.get("nota", "")) if n.get("tipo_evaluacion") == "Reparación I" else ""
+          rep2 = str(n.get("nota", "")) if n.get("tipo_evaluacion") == "Reparación II" else ""
+          final = str(n.get("nota", ""))
+
+          # Si es registro vacío, limpiar notas
+          if n.get("nombre_materia") == "------------------":
+              cert = rep1 = rep2 = final = ""
+
+          table_data.append([
+              Paragraph(tramo_label, table_cell),
+              Paragraph(str(n.get("nombre_materia", "")).upper(), table_cell),
+              Paragraph(cert, table_cell),
+              Paragraph(rep1, table_cell),
+              Paragraph(rep2, table_cell),
+              Paragraph(final, table_cell)
+          ])
+
+  # Notas registradas que no tengan tramo asignado
+  notas_sin_tramo = [n for n in notas_list if not n.get("tramo") or n.get("tramo") not in tramos_estructura]
+  for n in notas_sin_tramo:
+      cert = str(n.get("nota", "")) if n.get("tipo_evaluacion", "") in ["Ordinario", ""] else ""
+      rep1 = str(n.get("nota", "")) if n.get("tipo_evaluacion") == "Reparación I" else ""
+      rep2 = str(n.get("nota", "")) if n.get("tipo_evaluacion") == "Reparación II" else ""
+      final = str(n.get("nota", ""))
+
+      table_data.append([
+          Paragraph("-", table_cell),
+          Paragraph(str(n.get("nombre_materia", "")).upper(), table_cell),
+          Paragraph(cert, table_cell),
+          Paragraph(rep1, table_cell),
+          Paragraph(rep2, table_cell),
+          Paragraph(final, table_cell)
+      ])
+
+  t_notas = Table(table_data, colWidths=[65, 207, 70, 70, 70, 50])
+  t_notas.setStyle(TableStyle([
+      ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+      ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+      ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+  ]))
+  
+  story.append(t_notas)
+  story.append(Spacer(1, 15))
+
+  # Pie de Página (Observaciones, Conclusiones y Firmas)
+  meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+  now = datetime.now()
+  dia_txt = str(now.day)
+  mes_txt = meses[now.month - 1]
+
+  footer_text = f"""
+  <b>PROMEDIO DEL TRAYECTO:</b><br/>
+  <b>OBSERVACIONES:</b><br/>
+  <b>CONCLUSIONES:</b> PROMOVIDO: ______ NO PROMOVIDO: ______<br/><br/>
+  FECHA DE ELABORACIÓN: <b>{dia_txt}</b> MES: <b>{mes_txt.upper()}</b><br/><br/>
+  CERTIFICO: Que los datos consignados en el presente documento son rigurosamente ciertos, según consta en los Registros de la Secretaría a mi cargo.<br/><br/><br/><br/>
+  NOMBRES Y APELLIDOS DEL DIRECTOR DE SECRETARIA DEL NUCLEO ESTADAL:<br/>
+  <b>YAMILIS DEL CARMEN SANCHEZ CALLES</b><br/><br/>
+  FIRMA Y SELLO DE LA UCS:
+  """
+  story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13)))
+
+  doc.build(story)
+
 
 def render():
   st.subheader("📊 Módulo de Calificaciones, Notas y Recorridos")
@@ -657,3 +807,83 @@ def render():
                 st.warning("Este estudiante aún no tiene calificaciones cargadas.")
         else:
           st.info("No hay solicitudes pendientes en el listado de generación de notas actualmente.")
+
+      # Nueva pestaña exclusiva para Administrador (Pase de Año)
+    if tab_pase_ano is not None:
+      with tab_pase_ano:
+        st.markdown("#### 🎓 Generación de Documento Pase de Año / Trayecto")
+        st.info("Busca al estudiante, visualiza sus calificaciones para un trayecto determinado y emite el documento oficial **Pase de Trayecto** en PDF.")
+
+        cedula_pase = st.text_input("Ingrese la Cédula del Estudiante para emitir el Pase de Año").strip()
+
+        if cedula_pase:
+          c_str = cedula_pase
+          c_int = int(c_str) if c_str.isdigit() else None
+          q_est_pase = {"$or": [{"cedula": c_str}]}
+          if c_int is not None:
+            q_est_pase["$or"].append({"cedula": c_int})
+
+          est_pase = estudiantes_col.find_one(q_est_pase)
+
+          if est_pase:
+            st.success(f"Estudiante encontrado: **{est_pase.get('apellidos', '').upper()}, {est_pase.get('nombres', '').upper()}**")
+
+            # Obtener datos de la carrera actual (desde inscripciones_historial)
+            inscripcion_pase = db["inscripciones_historial"].find_one(q_est_pase)
+            carrera_nombre_pase = "Estudios Universitarios"
+            asic_estudiante = "No Aplica"
+
+            if inscripcion_pase:
+              asic_estudiante = inscripcion_pase.get("asic", "No Aplica")
+              if "cod_pnf" in inscripcion_pase:
+                carrera_doc_pase = carreras_col.find_one({"cod_pnf": inscripcion_pase["cod_pnf"]})
+                if carrera_doc_pase:
+                  carrera_nombre_pase = carrera_doc_pase.get("nombre_pnf", "Estudios Universitarios")
+
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+              trayecto_pase_sel = st.selectbox("Seleccione el Trayecto a generar", ["I", "II", "III", "IV", "V", "VI"], key="sel_trayecto_pase")
+            with col_p2:
+              asic_input = st.text_input("ASIC (Circuito)", value=asic_estudiante, key="asic_pase_input")
+
+            # Buscar las notas correspondientes al trayecto
+            q_not_pase = q_est_pase.copy()
+            q_not_pase["trayecto"] = {"$in": [trayecto_pase_sel, f"Trayecto {trayecto_pase_sel}"]}
+            
+            notas_pase = list(notas_col.find(q_not_pase, {"_id": 0}))
+
+            if notas_pase:
+              st.markdown(f"**Previsualización de Calificaciones (Trayecto {trayecto_pase_sel}):**")
+              df_notas_pase = pd.DataFrame(notas_pase)
+              st.dataframe(df_notas_pase, use_container_width=True, hide_index=True)
+
+              if st.button("📄 Generar y Descargar Pase de Año (PDF)"):
+                pdf_pase_filename = f"Pase_Ano_{cedula_pase}_Trayecto_{trayecto_pase_sel}.pdf"
+                
+                generar_pdf_pase_trayecto(
+                    pdf_pase_filename,
+                    est_pase,
+                    notas_pase,
+                    carrera_nombre_pase,
+                    trayecto_pase_sel,
+                    asic_input
+                )
+
+                with open(pdf_pase_filename, "rb") as f:
+                  st.download_button(
+                      label=f"📥 Descargar PDF Pase de Año para {est_pase.get('nombres')}",
+                      data=f,
+                      file_name=pdf_pase_filename,
+                      mime="application/pdf",
+                  )
+                
+                registrar_log(
+                    db,
+                    usuario_actual,
+                    "EMITIR_PASE_ANO",
+                    f"Generado PDF de Pase de Año para cédula {cedula_pase} en Trayecto {trayecto_pase_sel}",
+                )
+            else:
+              st.warning("No hay notas registradas para este estudiante en el trayecto seleccionado.")
+          else:
+            st.error("No se encontró ningún estudiante con esa cédula.")
