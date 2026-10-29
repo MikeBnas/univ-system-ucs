@@ -150,13 +150,15 @@ def show_dashboard():
         "🏛️ Carreras y Materias",
         "📄 Actas de Notas",
         "📨 Solicitudes",
-        "📂 Importar Excel"
+        "📂 Importar Excel",
+        "❓ Ayuda y Soporte"
         
     ])
   elif st.session_state.rol == "Docente":
     opciones_menu.append("📄 Actas de Notas")
+    opciones_menu.append("❓ Ayuda y Soporte")
   elif st.session_state.rol == "Estudiante":
-    opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas"]
+    opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas", "❓ Ayuda y Soporte"]
 
   menu = st.sidebar.radio("Navegación", opciones_menu)
 
