@@ -187,7 +187,7 @@ def generar_pdf_constancia_notas(filename, estudiante, notas_list, carrera_nombr
   story.append(Spacer(1, 12))
 
   bloque_firma = f"""
-    <b>ISABEL MERLO</b><br/>
+    <b>ISABE MERLO</b><br/>
     Directora General de Control de Estudios<br/>
     Providencia Administrativa 2018-027-CUOV-04.13 de fecha 09/04/2018
     """
