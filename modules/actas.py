@@ -20,7 +20,7 @@ def generar_pdf_acta(
     docente_cedula,
     estudiantes_list,
 ):
-  """Genera el acta de notas oficial con bloques fijos, orden alfabético, tramo, filtro por ASIC y relleno de filas con altura uniforme"""
+  """Genera el acta de notas oficial con bloques fijos, orden alfabético, tramo y filtro por ASIC"""
 
   styles = getSampleStyleSheet()
 
@@ -139,11 +139,6 @@ def generar_pdf_acta(
       key=lambda x: str(x.get('apellidos', '')).strip().upper()
   )
 
-  # Rellenar con filas vacías hasta completar la página por completo (Ej: 21 filas mínimas)
-  MIN_FILAS = 21
-  while len(estudiantes_ordenados) < MIN_FILAS:
-    estudiantes_ordenados.append({})
-
   # 3. TABLA DE ESTUDIANTES CON SUBCOLUMNAS OFICIALES
   table_data = [
       [
@@ -163,15 +158,11 @@ def generar_pdf_acta(
   ]
 
   for idx, est in enumerate(estudiantes_ordenados, 1):
-    tiene_datos = bool(est.get('apellidos') or est.get('nombres') or est.get('cedula'))
-    num_str = str(idx) if tiene_datos else ""
-    nombre_completo = f"{est.get('apellidos', '').upper()}, {est.get('nombres', '').upper()}" if tiene_datos else ""
-    cedula_str = str(est.get('cedula', '')) if tiene_datos else ""
-
+    nombre_completo = f"{est.get('apellidos', '').upper()}, {est.get('nombres', '').upper()}"
     table_data.append([
-        Paragraph(num_str, cell_style),
+        Paragraph(str(idx), cell_style),
         Paragraph(nombre_completo, cell_style),
-        Paragraph(cedula_str, cell_style),
+        Paragraph(str(est.get('cedula', '')), cell_style),
         Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
         Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style),
         Paragraph("", cell_style), Paragraph("", cell_style), Paragraph("", cell_style)
@@ -312,7 +303,7 @@ def render():
   col3, col4 = st.columns(2)
   with col3:
     docente_nombre = st.text_input(
-        "Nombres y Apellidos del Docente", value=st.session_state.username
+        "Nombres y Apellidos del Docente", value=st.session_state.get("username", "")
     )
   with col4:
     docente_cedula = st.text_input("Cédula de Identidad del Docente")
