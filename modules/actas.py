@@ -20,7 +20,7 @@ def generar_pdf_acta(
     docente_cedula,
     estudiantes_list,
 ):
-  """Genera el acta de notas oficial con bloques fijos, orden alfabético, tramo, filtro por ASIC y relleno automático de filas hasta completar la página"""
+  """Genera el acta de notas oficial con bloques fijos, orden alfabético, tramo, filtro por ASIC y relleno de filas con altura uniforme"""
 
   styles = getSampleStyleSheet()
 
@@ -139,7 +139,7 @@ def generar_pdf_acta(
       key=lambda x: str(x.get('apellidos', '')).strip().upper()
   )
 
-  # Rellenar con filas vacías si hay pocos estudiantes para ocupar la página por completo
+  # Rellenar con filas vacías hasta completar la página por completo (Ej: 21 filas mínimas)
   MIN_FILAS = 21
   while len(estudiantes_ordenados) < MIN_FILAS:
     estudiantes_ordenados.append({})
@@ -412,7 +412,7 @@ def render():
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
     
     if "apellidos" in df_est.columns:
-      df_est = df_est.sort_users = df_est.sort_values(by="apellidos", ascending=True)
+      df_est = df_est.sort_values(by="apellidos", ascending=True)
 
     df_est["Incluir en Acta"] = True
     cols = ["Incluir en Acta"] + [col for col in df_est.columns if col != "Incluir en Acta"]
@@ -454,6 +454,6 @@ def render():
                 file_name=f"Acta_{params['carrera'].split(' - ')[0]}_Trayecto{params['trayecto']}.pdf",
                 mime="application/pdf",
             )
-          st.success("¡Acta generada perfectamente con el relleno de filas vacías y diseño institucional!")
+          st.success("¡Acta generada perfectamente con el filtro ASIC aplicado y diseño institucional!")
         else:
           st.error("Debe dejar al menos un estudiante seleccionado.")
