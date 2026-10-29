@@ -221,7 +221,8 @@ def render_admin():
         t_id = t["_id"]
         usuario_remitente = t.get("usuario", "Desconocido")
         rol_remitente = t.get("rol", "Usuario")
-        mensaje = t.get("mensaje", "")
+        asunto = t.get("asunto","")
+        mensaje = t.get("descripcion", "")
         fecha_ticket = t.get("fecha", "")
         estado_ticket = t.get("estado", "Pendiente")
         respuesta_admin = t.get("respuesta", "")
@@ -231,7 +232,9 @@ def render_admin():
         with st.expander(f"Soporte #{str(t_id)[-6:]} - [{rol_remitente}] {usuario_remitente} [{icono_soporte}]"):
           st.write(f"**Fecha:** {fecha_ticket}")
           st.write(f"**Remitente:** {usuario_remitente} (Rol: {rol_remitente})")
-          st.write(f"**Descripción del Problema / Solicitud:**")
+          st.write(f"**Asunto:**")
+          st.info(asunto)
+          st.write(f"**Descripción del Problema / Solicitud:**")          
           st.info(mensaje)
 
           # Formulario para responder o actualizar el ticket
