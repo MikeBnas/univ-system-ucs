@@ -260,7 +260,6 @@ def show_dashboard():
      from modules import ayuda
      ayuda.render()
 
-
 if not st.session_state.logged_in:
   show_auth_screen()
 else:
