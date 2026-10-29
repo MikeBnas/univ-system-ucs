@@ -150,9 +150,7 @@ def show_dashboard():
         "🏛️ Carreras y Materias",
         "📄 Actas de Notas",
         "📨 Solicitudes",
-        "📂 Importar Excel",
-        "❓ Ayuda y Soporte"
-        
+        "📂 Importar Excel"        
     ])
   elif st.session_state.rol == "Docente":
     opciones_menu.append("📄 Actas de Notas")
