@@ -84,15 +84,20 @@ def render_estudiante(cedula, nombre_estudiante):
 
 
 def render_admin():
-  st.subheader("📨 Gestión de Solicitudes de Estudiantes (Administrador)")
+  st.subheader("📨 Gestión del Administrador")
 
   db = get_db()
   solicitudes_col = db["solicitudes"]
   listas_col = db["listas_generacion"] # Colección para almacenar los estudiantes agregados a los listados
+  tickets_soporte_col = db["tickets_soporte"] # Colección de tickets de ayuda / soporte técnico
   usuario_actual = st.session_state.get("username", "Admin")
 
-  # Pestañas para separar la gestión de tickets y los listados de generación
-  tab_gestion, tab_listados = st.tabs(["🎫 Gestión de Tickets", "📑 Listados para Generar Documentos"])
+  # Pestañas para separar la gestión de solicitudes, listados y tickets de soporte técnica
+  tab_gestion, tab_listados, tab_soporte = st.tabs([
+      "🎫 Gestión de Tickets", 
+      "📑 Listados para Generar Documentos",
+      "🛠️ Soporte y Tickets de Ayuda"
+  ])
 
   with tab_gestion:
     filtro_estado = st.selectbox("Filtrar por estado", ["Todas", "Pendiente", "Respondido"])
@@ -200,3 +205,55 @@ def render_admin():
         st.rerun()
     else:
       st.info("No hay estudiantes en el listado de generación de constancias.")
+
+  with tab_soporte:
+    st.markdown("#### 🛠️ Tickets de Soporte Técnico y Ayuda")
+    st.info("Aquí puedes revisar los reportes o solicitudes de ayuda enviados por estudiantes y docentes.")
+
+    filtro_soporte = st.selectbox("Filtrar estado de soporte", ["Todas", "Pendiente", "Resuelto"], key="filtro_soporte_admin")
+    query_soporte = {} if filtro_soporte == "Todas" else {"estado": filtro_soporte}
+    tickets_list = list(tickets_soporte_col.find(query_soporte).sort("fecha", -1))
+
+    if tickets_list:
+      st.markdown(f"Total de tickets de soporte encontrados: **{len(tickets_list)}**")
+      
+      for t in tickets_list:
+        t_id = t["_id"]
+        usuario_remitente = t.get("usuario", "Desconocido")
+        rol_remitente = t.get("rol", "Usuario")
+        mensaje = t.get("mensaje", "")
+        fecha_ticket = t.get("fecha", "")
+        estado_ticket = t.get("estado", "Pendiente")
+        respuesta_admin = t.get("respuesta", "")
+
+        icono_soporte = "⏳ Pendiente" if estado_ticket == "Pendiente" else "✅ Resuelto"
+
+        with st.expander(f"Soporte #{str(t_id)[-6:]} - [{rol_remitente}] {usuario_remitente} [{icono_soporte}]"):
+          st.write(f"**Fecha:** {fecha_ticket}")
+          st.write(f"**Remitente:** {usuario_remitente} (Rol: {rol_remitente})")
+          st.write(f"**Descripción del Problema / Solicitud:**")
+          st.info(mensaje)
+
+          # Formulario para responder o actualizar el ticket
+          with st.form(f"form_resp_soporte_{t_id}"):
+            nueva_respuesta = st.text_area("Respuesta del Administrador", value=respuesta_admin, placeholder="Escribe aquí la respuesta o solución...")
+            nuevo_estado = st.selectbox("Estado del Ticket", ["Pendiente", "Resuelto"], index=0 if estado_ticket == "Pendiente" else 1)
+            
+            btn_guardar_soporte = st.form_submit_button("💾 Guardar Respuesta y Estado", type="primary")
+
+            if btn_guardar_soporte:
+              tickets_soporte_col.update_one(
+                  {"_id": t_id},
+                  {"$set": {"respuesta": nueva_respuesta, "estado": nuevo_estado}}
+              )
+              registrar_log(db, usuario_actual, "RESPONDER_SOPORTE", f"Actualizó ticket de soporte #{str(t_id)[-6:]} a estado {nuevo_estado}")
+              st.success("¡Ticket de soporte actualizado con éxito!")
+              st.rerun()
+
+          if st.button("🗑️ Eliminar Ticket de Soporte", key=f"del_soporte_{t_id}"):
+            tickets_soporte_col.delete_one({"_id": t_id})
+            registrar_log(db, usuario_actual, "ELIMINAR_SOPORTE", f"Eliminó ticket de soporte #{str(t_id)[-6:]}")
+            st.success("¡Ticket de soporte eliminado!")
+            st.rerun()
+    else:
+      st.info("No hay tickets de soporte registrados con el filtro seleccionado.")
