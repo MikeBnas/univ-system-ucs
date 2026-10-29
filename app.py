@@ -256,7 +256,7 @@ def show_dashboard():
 
   elif menu == "❓ Ayuda y Soporte":
      from modules import ayuda
-     ayuda.render()
+     ayuda_module.render()
 
 if not st.session_state.logged_in:
   show_auth_screen()
