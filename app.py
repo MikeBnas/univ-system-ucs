@@ -254,6 +254,10 @@ def show_dashboard():
     from modules import solicitudes
     solicitudes.render_admin()
 
+  elif menu == "❓ Ayuda y Soporte":
+     from modules import ayuda
+     ayuda.render()
+
 
 if not st.session_state.logged_in:
   show_auth_screen()
