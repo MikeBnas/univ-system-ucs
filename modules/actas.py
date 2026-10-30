@@ -321,32 +321,45 @@ def render():
           "trayecto": {"$in": [trayecto_sel, f"Trayecto {trayecto_sel}"]},
           "estado": "Activo",
       }
-      if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
-        query_insc["asic"] = asic_sel
 
       inscripciones = list(db["inscripciones_historial"].find(query_insc, {"_id": 0}))
+      cedulas_inscritas = [str(i["cedula"]).strip() for i in inscripciones if "cedula" in i]
 
-      # Buscar también por el parámetro 'asic' en la colección usuarios si aplica
+      # Obtener cédulas asociadas a la ASIC en usuarios o estudiantes si aplica
       cedulas_de_usuarios = []
+      cedulas_de_estudiantes_asic = []
       if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
         usuarios_asic = list(db["usuarios"].find({"asic": asic_sel}, {"_id": 0, "cedula": 1}))
         cedulas_de_usuarios = [str(u["cedula"]).strip() for u in usuarios_asic if "cedula" in u]
 
-      cedulas_inscritas = list(set([str(i["cedula"]).strip() for i in inscripciones if "cedula" in i] + cedulas_de_usuarios))
+        estudiantes_asic_docs = list(db["estudiantes"].find({"asic": asic_sel}, {"_id": 0, "cedula": 1}))
+        cedulas_de_estudiantes_asic = [str(e["cedula"]).strip() for e in estudiantes_asic_docs if "cedula" in e]
 
-      if cedulas_inscritas:
-        query_estudiantes = {
+      # Consolidar cédulas válidas según el filtro ASIC
+      if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
+        cedulas_validas = list(set(cedulas_inscritas).intersection(set(cedulas_de_usuarios + cedulas_de_estudiantes_asic)))
+        # Si por alguna razón la inscripción no tiene réplica exacta pero el estudiante pertenece a la ASIC y está inscrito:
+        if not cedulas_validas and cedulas_inscritas:
+          cedulas_validas = [c for c in cedulas_inscritas if c in cedulas_de_estudiantes_asic or c in cedulas_de_usuarios]
+      else:
+        cedulas_validas = list(set(cedulas_inscritas + cedulas_de_usuarios))
+
+      if cedulas_validas:
+        query_est = {
             "$or": [
-                {"cedula": {"$in": cedulas_inscritas}},
-                {"cedula": {"$in": [int(c) for c in cedulas_inscritas if c.isdigit()]}}
+                {"cedula": {"$in": cedulas_validas}},
+                {"cedula": {"$in": [int(c) for c in cedulas_validas if c.isdigit()]}}
             ]
         }
-        if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
-          query_estudiantes["asic"] = asic_sel
+        
+        estudiantes_encontrados = list(db["estudiantes"].find(query_est, {"_id": 0}))
 
-        estudiantes_encontrados = list(
-            db["estudiantes"].find(query_estudiantes, {"_id": 0})
-        )
+        # Filtro estricto en memoria para excluir a cualquier estudiante que no cumpla la condición ASIC
+        if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
+          estudiantes_encontrados = [
+              e for e in estudiantes_encontrados
+              if e.get("asic") == agrupar_asic if False else (e.get("asic") == asic_sel or str(e.get("cedula")) in cedulas_de_estudiantes_asic)
+          ]
 
         if estudiantes_encontrados:
           st.session_state["acta_estudiantes"] = estudiantes_encontrados
@@ -362,7 +375,7 @@ def render():
           }
           st.success(f"¡Se cargaron {len(estudiantes_encontrados)} estudiantes activos para la ASIC seleccionada!")
         else:
-          st.warning("Se encontraron inscripciones, pero no coinciden con la tabla de estudiantes.")
+          st.warning("Se encontraron inscripciones, pero ninguna pertenece a la ASIC seleccionada.")
           st.session_state["acta_estudiantes"] = []
       else:
         st.warning("No hay estudiantes activos para esta carrera, trayecto y ASIC seleccionada.")
