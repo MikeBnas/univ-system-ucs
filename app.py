@@ -146,7 +146,7 @@ def show_dashboard():
         "🏛️ Carreras y Materias",
         "📄 Actas de Notas",
         "📨 Solicitudes",
-        "📂 Importar Excel"        
+        "📂 Importar Excel"
     ])
   elif st.session_state.rol == "Docente":
     opciones_menu.append("📄 Actas de Notas")
@@ -154,13 +154,13 @@ def show_dashboard():
   elif st.session_state.rol == "Estudiante":
     opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas", "❓ Ayuda y Soporte"]
 
-  # Validar el estado del módulo actual
-  if st.session_state.menu_activo not in opciones_menu:
+  # Validar el estado actual
+  if st.session_state.get("menu_activo") not in opciones_menu:
     st.session_state.menu_activo = "🏠 Inicio"
-  if st.session_state.menu_sidebar not in opciones_menu:
+  if st.session_state.get("menu_sidebar") not in opciones_menu:
     st.session_state.menu_sidebar = st.session_state.menu_activo
 
-  # Radio de navegación con clave separada para evitar conflicto con cambios manuales
+  # Radio del sidebar con clave separada
   index_actual = opciones_menu.index(st.session_state.menu_activo)
   selected = st.sidebar.radio(
       "Navegación",
@@ -168,9 +168,12 @@ def show_dashboard():
       index=index_actual,
       key="menu_sidebar"
   )
+
+  # Mantener sincronizados ambos valores
   st.session_state.menu_activo = selected
 
   st.sidebar.markdown("---")
+
   if st.sidebar.button("Cerrar Sesión", type="primary"):
     st.session_state.logged_in = False
     st.session_state.username = ""
@@ -227,16 +230,19 @@ def show_dashboard():
             st.rerun()
 
           from modules import solicitudes
-          solicitudes.render_estudiante(cedula_est, f"{est_doc.get('nombres', '')} {est_doc.get('apellidos', '')}")
+          solicitudes.render_estudiante(
+              cedula_est,
+              f"{est_doc.get('nombres', '')} {est_doc.get('apellidos', '')}"
+          )
       else:
         st.warning("⚠️ No se encontró un registro en la tabla de estudiantes asociado a tu cédula registrada.")
         st.write(f"Cédula registrada en tu cuenta: **{cedula_est}**")
         st.info("Por favor contacta al administrador si tus datos no aparecen sincronizados.")
-    
+
     elif st.session_state.rol == "Docente":
       st.title("👤 Perfil de Docente y Accesos Directos")
       st.write(f"¡Hola, **{st.session_state.username}**! Bienvenido al panel principal.")
-      
+
       st.markdown("---")
       st.markdown("### 🚀 Accesos Directos")
       st.caption("Selecciona una tarjeta para abrir rápidamente los módulos principales:")
@@ -248,18 +254,21 @@ def show_dashboard():
           st.session_state.menu_activo = "📊 Calificaciones y Notas"
           st.session_state.menu_sidebar = "📊 Calificaciones y Notas"
           st.rerun()
+
       with col_d2:
         st.info("📄 **Actas de Notas**\n\nGenera y descarga las actas oficiales en PDF.")
         if st.button("Abrir Módulo de Actas", type="primary", use_container_width=True):
           st.session_state.menu_activo = "📄 Actas de Notas"
           st.session_state.menu_sidebar = "📄 Actas de Notas"
           st.rerun()
+
       with col_d3:
         st.info("❓ **Ayuda y Soporte**\n\nConsulta guías o contacta al administrador.")
         if st.button("Abrir Ayuda y Soporte", type="primary", use_container_width=True):
           st.session_state.menu_activo = "❓ Ayuda y Soporte"
           st.session_state.menu_sidebar = "❓ Ayuda y Soporte"
           st.rerun()
+
     else:
       st.title("Panel de Control Académico")
       st.write(f"Hola **{st.session_state.username}**, panel activo.")
@@ -287,7 +296,7 @@ def show_dashboard():
   elif current_view == "📄 Actas de Notas":
     from modules import actas
     actas.render()
-    
+
   elif current_view == "📂 Importar Excel":
     from modules import importador_excel
     importador_excel.render()
@@ -297,8 +306,8 @@ def show_dashboard():
     solicitudes.render_admin()
 
   elif current_view == "❓ Ayuda y Soporte":
-     from modules import ayuda_module
-     ayuda_module.render()
+    from modules import ayuda_module
+    ayuda_module.render()
 
 if not st.session_state.logged_in:
   show_auth_screen()
