@@ -210,7 +210,7 @@ def render():
 
   # Listado fijo de ASIC
   LISTA_ASIC = [
-      "Asic Alberto Arvelo Torrealba (Jose Gregorio Hernandez)",
+      "Asic Alberto Alvelo Torrealba (jose Gregorio Hernandez)",
       "Asic Andres Eloy Blanco",
       "Asic Antonio Jose De Sucre",
       "Asic Arismendi",
@@ -219,10 +219,10 @@ def render():
       "Asic Cruz Paredes",
       "Asic El Carmen",
       "Asic Ezequiel Zamora",
-      "Asic Guanapa (Romulo Betancourt)",
+      "Asic Guanapa (romulo Betancourt",
       "Asic Manuel Palacio Fajardo",
-      "Asic Obispo (Virgen Del Real)",
-      "Asic Pedraza (Ciudad Bolivia)",
+      "Asic Obispo (virgen Del Real)",
+      "Asic Pedraza (ciudad Bolivia)",
       "Asic Ramon Ignacio Mendez",
       "Asic Rojas",
       "Asic San Silvestre",
