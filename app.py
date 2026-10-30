@@ -151,19 +151,12 @@ def show_dashboard():
   elif st.session_state.rol == "Estudiante":
     opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas", "❓ Ayuda y Soporte"]
 
-  # Asegurar que el índice seleccionado corresponda al estado actual
+  # Asegurar que el menú activo esté dentro de las opciones permitidas
   if st.session_state.menu_activo not in opciones_menu:
     st.session_state.menu_activo = "🏠 Inicio"
 
-  indice_actual = opciones_menu.index(st.session_state.menu_activo)
-
-  # Radio de navegación vinculado al session_state
-  menu = st.sidebar.radio("Navegación", opciones_menu, index=indice_actual, key="radio_menu_principal")
-
-  # Sincronizar si el usuario cambia directamente en el radio sidebar
-  if menu != st.session_state.menu_activo:
-    st.session_state.menu_activo = menu
-    st.rerun()
+  # Radio de navegación vinculado directamente a st.session_state.menu_activo via key
+  st.sidebar.radio("Navegación", opciones_menu, key="menu_activo")
 
   st.sidebar.markdown("---")
   if st.sidebar.button("Cerrar Sesión", type="primary"):
@@ -249,8 +242,8 @@ def show_dashboard():
       with col_d3:
         st.info("❓ **Ayuda y Soporte**\n\nConsulta guías o contacta al administrador.")
         if st.button("Abrir Ayuda y Soporte", type="primary", use_container_width=True):
-           st.session_state.menu_activo = "❓ Ayuda y Soporte"
-           st.rerun()
+          st.session_state.menu_activo = "❓ Ayuda y Soporte"
+          st.rerun()
     else:
       st.title("Panel de Control Académico")
       st.write(f"Hola **{st.session_state.username}**, panel activo.")
