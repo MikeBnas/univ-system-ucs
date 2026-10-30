@@ -335,16 +335,17 @@ def render():
       cedulas_inscritas = list(set([str(i["cedula"]).strip() for i in inscripciones if "cedula" in i] + cedulas_de_usuarios))
 
       if cedulas_inscritas:
+        query_estudiantes = {
+            "$or": [
+                {"cedula": {"$in": cedulas_inscritas}},
+                {"cedula": {"$in": [int(c) for c in cedulas_inscritas if c.isdigit()]}}
+            ]
+        }
+        if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
+          query_estudiantes["asic"] = asic_sel
+
         estudiantes_encontrados = list(
-            db["estudiantes"].find(
-                {
-                    "$or": [
-                        {"cedula": {"$in": cedulas_inscritas}},
-                        {"cedula": {"$in": [int(c) for c in cedulas_inscritas if c.isdigit()]}}
-                    ]
-                },
-                {"_id": 0},
-            )
+            db["estudiantes"].find(query_estudiantes, {"_id": 0})
         )
 
         if estudiantes_encontrados:
