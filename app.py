@@ -249,8 +249,9 @@ def show_dashboard():
       with col_d3:
         st.info("❓ **Ayuda y Soporte**\n\nConsulta guías o contacta al administrador.")
         if st.button("Abrir Ayuda y Soporte", type="primary", use_container_width=True):
-          st.session_state.menu_activo = "❓ Ayuda y Soporte"
-          st.rerun()
+          current_view == "❓ Ayuda y Soporte"
+          from modules import ayuda_module
+          ayuda_module.render()
     else:
       st.title("Panel de Control Académico")
       st.write(f"Hola **{st.session_state.username}**, panel activo.")
