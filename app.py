@@ -19,10 +19,6 @@ if "rol" not in st.session_state:
   st.session_state.rol = ""
 if "cedula" not in st.session_state:
   st.session_state.cedula = ""
-if "menu_activo" not in st.session_state:
-    st.session_state.menu_activo = "🏠 Inicio"
-if "menu_sidebar" not in st.session_state:
-    st.session_state.menu_sidebar = "🏠 Inicio"
 
 
 def show_auth_screen():
@@ -54,6 +50,7 @@ def show_auth_screen():
 
         if submit:
           if usuario_input and password_input:
+            # 1. Buscamos al usuario solo por su nombre o correo (sin filtrar la contraseña en el query)
             user_doc = usuarios_col.find_one({
                 "$or": [
                     {"usuario": usuario_input},
@@ -63,13 +60,12 @@ def show_auth_screen():
 
             from modules.security import verificar_password
 
+            # 2. Verificamos la contraseña de forma segura (soporta texto plano antiguo y hashes nuevos)
             if user_doc and verificar_password(user_doc.get("password", ""), password_input):
               st.session_state.logged_in = True
               st.session_state.username = user_doc["usuario"]
               st.session_state.rol = user_doc.get("rol", "Estudiante")
               st.session_state.cedula = user_doc.get("cedula", "")
-              st.session_state.menu_activo = "🏠 Inicio"
-              st.session_state.menu_sidebar = "🏠 Inicio"
               st.success("¡Bienvenido!")
               st.rerun()
             else:
@@ -84,29 +80,37 @@ def show_auth_screen():
             "*(Nota: Todo nuevo registro se crea con rol de **Estudiante** y requiere cédula obligatoria)*"
         )
         nuevo_usuario = st.text_input("Nombre de Usuario")
-        
+
+        # Cédula con hint de ejemplo
         nueva_cedula_input = st.text_input(
             "Cédula de Identidad", 
             placeholder="Ej: 13234321",
             help="Ingrese su número de cédula sin puntos ni espacios."
         )
-        
+
+        # Correo con hint de ejemplo
         nuevo_email_input = st.text_input(
             "Correo Electrónico", 
             placeholder="Ej: usuario@correo.com",
             help="Ingrese su correo electrónico sin espacios en blanco."
         )
-        
+
         nuevo_pass = st.text_input("Contraseña", type="password")
         submit_reg = st.form_submit_button("Registrarse")
 
         if submit_reg:
+          # Limpiar espacios en blanco y puntos de la cédula y correo
           nueva_cedula = "".join(c for c in nueva_cedula_input if c.isdigit()).strip()
           nuevo_email = nuevo_email_input.strip()
 
           if nuevo_usuario and nueva_cedula and nuevo_email and nuevo_pass:
+            # Validaciones adicionales de formato limpio
             if " " in nuevo_email:
               st.error("El correo electrónico no puede contener espacios en blanco.")
+            elif not nueva_cedula_input.strip().isdigit() and any(c in nueva_cedula_input for c in ['.', ' ']):
+              # Mensaje preventivo si intentó usar puntos o espacios
+              # (La limpieza ya extrajo solo los dígitos, pero avisamos si se limpió)
+              pass
 
             if usuarios_col.find_one({"usuario": nuevo_usuario}):
               st.warning("El nombre de usuario ya está en uso.")
@@ -136,6 +140,7 @@ def show_dashboard():
   st.sidebar.caption(f"Rol: **{st.session_state.rol}**")
   st.sidebar.markdown("---")
 
+  # Definir menú dinámico basado en el rol
   opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas"]
 
   if st.session_state.rol == "Administrador":
@@ -145,7 +150,7 @@ def show_dashboard():
         "🏛️ Carreras y Materias",
         "📄 Actas de Notas",
         "📨 Solicitudes",
-        "📂 Importar Excel"
+        "📂 Importar Excel"        
     ])
   elif st.session_state.rol == "Docente":
     opciones_menu.append("📄 Actas de Notas")
@@ -153,70 +158,106 @@ def show_dashboard():
   elif st.session_state.rol == "Estudiante":
     opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas", "❓ Ayuda y Soporte"]
 
-  if st.session_state.menu_activo not in opciones_menu:
-    st.session_state.menu_activo = "🏠 Inicio"
-
-  index_actual = opciones_menu.index(st.session_state.menu_activo)
-
-  selected = st.sidebar.radio(
-      "Navegación",
-      opciones_menu,
-      index=index_actual,
-      key="menu_sidebar"
-  )
-
-  st.session_state.menu_activo = selected
+  menu = st.sidebar.radio("Navegación", opciones_menu)
 
   st.sidebar.markdown("---")
-
   if st.sidebar.button("Cerrar Sesión", type="primary"):
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.session_state.rol = ""
     st.session_state.cedula = ""
-    st.session_state.menu_activo = "🏠 Inicio"
+    if "mostrar_modulo_solicitud" in st.session_state:
+      del st.session_state.mostrar_modulo_solicitud
     st.rerun()
 
-  current_view = st.session_state.menu_activo
-
-  if current_view == "🏠 Inicio":
+  # Enrutador
+  if menu == "🏠 Inicio":
     if st.session_state.rol == "Estudiante":
       st.title("👤 Mi Perfil de Estudiante")
-      # resto del código...
-    elif st.session_state.rol == "Docente":
-      st.title("👤 Perfil de Docente y Accesos Directos")
-      st.markdown("### 🚀 Accesos Directos")
+      db = get_db()
+      cedula_est = st.session_state.get("cedula", "")
 
-      col_d1, col_d2, col_d3 = st.columns(3)
-      with col_d1:
-        st.info("📊 **Calificaciones y Notas**")
-        if st.button("Abrir Módulo de Notas", type="primary", use_container_width=True):
-          st.session_state.menu_activo = "📊 Calificaciones y Notas"
-          st.rerun()
+      c_str = str(cedula_est).strip()
+      c_int = int(c_str) if c_str.isdigit() else None
+      q_est = {"$or": [{"cedula": c_str}]}
+      if c_int is not None:
+        q_est["$or"].append({"cedula": c_int})
 
-      with col_d2:
-        st.info("📄 **Actas de Notas**")
-        if st.button("Abrir Módulo de Actas", type="primary", use_container_width=True):
-          st.session_state.menu_activo = "📄 Actas de Notas"
-          st.rerun()
+      est_doc = db["estudiantes"].find_one(q_est)
 
-      with col_d3:
-        st.info("❓ **Ayuda y Soporte**")
-        if st.button("Abrir Ayuda y Soporte", type="primary", use_container_width=True):
-          st.session_state.menu_activo = "❓ Ayuda y Soporte"
-          st.rerun()
+      if est_doc:
+        st.markdown(f"### Bienvenido, {est_doc.get('nombres', '')} {est_doc.get('apellidos', '')}")
+        st.info("Datos personales registrados en el sistema académico:")
 
-  elif current_view == "📊 Calificaciones y Notas":
+        col1, col2 = st.columns(2)
+        with col1:
+          st.write(f"**Cédula:** {est_doc.get('cedula', '')}")
+          st.write(f"**Nombres:** {est_doc.get('nombres', '')}")
+          st.write(f"**Apellidos:** {est_doc.get('apellidos', '')}")
+        with col2:
+          st.write(f"**Correo:** {est_doc.get('email', est_doc.get('correo', 'N/A'))}")
+          st.write(f"**Teléfono:** {est_doc.get('telefono', 'N/A')}")
+          st.write(f"**Dirección:** {est_doc.get('direccion', 'N/A')}")
+
+        st.markdown("---")
+        if "mostrar_modulo_solicitud" not in st.session_state:
+          st.session_state.mostrar_modulo_solicitud = False
+
+        if not st.session_state.mostrar_modulo_solicitud:
+          if st.button("📄 Solicitar Documento", type="primary"):
+            st.session_state.mostrar_modulo_solicitud = True
+            st.rerun()
+        else:
+          if st.button("⬅️ Volver a mi Perfil"):
+            st.session_state.mostrar_modulo_solicitud = False
+            st.rerun()
+
+          from modules import solicitudes
+          solicitudes.render_estudiante(cedula_est, f"{est_doc.get('nombres', '')} {est_doc.get('apellidos', '')}")
+      else:
+        st.warning("⚠️ No se encontró un registro en la tabla de estudiantes asociado a tu cédula registrada.")
+        st.write(f"Cédula registrada en tu cuenta: **{cedula_est}**")
+        st.info("Por favor contacta al administrador si tus datos no aparecen sincronizados.")
+    else:
+      st.title("Panel de Control Académico")
+      st.write(f"Hola **{st.session_state.username}**, panel activo.")
+
+  elif menu == "👨‍🎓 Estudiantes":
+    from modules import estudiantes
+    estudiantes.render()
+
+  elif menu == "🏛️ Carreras y Materias":
+    from modules import carreras
+    carreras.render()
+
+  elif menu == "📊 Calificaciones y Notas":
     from modules import notas
     notas.render()
 
-  elif current_view == "📄 Actas de Notas":
+  elif menu == "👥 Gestión de Usuarios":
+    from modules import usuarios
+    usuarios.render()
+
+  elif menu == "📅 Años Académicos":
+    st.title("Configuración de Años Académicos")
+    st.info("Administración de periodos lectivos...")
+
+  elif menu == "📄 Actas de Notas":
     from modules import actas
     actas.render()
 
-  elif current_view == "❓ Ayuda y Soporte":
-    from modules import ayuda_module
-    ayuda_module.render()
+  elif menu == "📂 Importar Excel":
+    from modules import importador_excel
+    importador_excel.render()
+
+  elif menu == "📨 Solicitudes":
+    from modules import solicitudes
+    solicitudes.render_admin()
+
+  elif menu == "❓ Ayuda y Soporte":
+     from modules import ayuda
+     from modules import ayuda_module
+     ayuda_module.render()
 
 if not st.session_state.logged_in:
   show_auth_screen()
