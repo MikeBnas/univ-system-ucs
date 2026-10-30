@@ -358,7 +358,7 @@ def render():
         if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
           estudiantes_encontrados = [
               e for e in estudiantes_encontrados
-              if e.get("asic") == agrupar_asic if False else (e.get("asic") == asic_sel or str(e.get("cedula")) in cedulas_de_estudiantes_asic)
+              if e.get("asic") == asic_sel or str(e.get("cedula")) in cedulas_de_estudiantes_asic
           ]
 
         if estudiantes_encontrados:
