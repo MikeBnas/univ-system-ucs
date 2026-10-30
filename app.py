@@ -19,6 +19,8 @@ if "rol" not in st.session_state:
   st.session_state.rol = ""
 if "cedula" not in st.session_state:
   st.session_state.cedula = ""
+if "menu_activo" not in st.session_state:
+  st.session_state.menu_activo = "🏠 Inicio"
 
 
 def show_auth_screen():
@@ -50,7 +52,6 @@ def show_auth_screen():
 
         if submit:
           if usuario_input and password_input:
-            # 1. Buscamos al usuario solo por su nombre o correo (sin filtrar la contraseña en el query)
             user_doc = usuarios_col.find_one({
                 "$or": [
                     {"usuario": usuario_input},
@@ -60,12 +61,12 @@ def show_auth_screen():
 
             from modules.security import verificar_password
 
-            # 2. Verificamos la contraseña de forma segura (soporta texto plano antiguo y hashes nuevos)
             if user_doc and verificar_password(user_doc.get("password", ""), password_input):
               st.session_state.logged_in = True
               st.session_state.username = user_doc["usuario"]
               st.session_state.rol = user_doc.get("rol", "Estudiante")
               st.session_state.cedula = user_doc.get("cedula", "")
+              st.session_state.menu_activo = "🏠 Inicio"
               st.success("¡Bienvenido!")
               st.rerun()
             else:
@@ -81,14 +82,12 @@ def show_auth_screen():
         )
         nuevo_usuario = st.text_input("Nombre de Usuario")
         
-        # Cédula con hint de ejemplo
         nueva_cedula_input = st.text_input(
             "Cédula de Identidad", 
             placeholder="Ej: 13234321",
             help="Ingrese su número de cédula sin puntos ni espacios."
         )
         
-        # Correo con hint de ejemplo
         nuevo_email_input = st.text_input(
             "Correo Electrónico", 
             placeholder="Ej: usuario@correo.com",
@@ -99,18 +98,12 @@ def show_auth_screen():
         submit_reg = st.form_submit_button("Registrarse")
 
         if submit_reg:
-          # Limpiar espacios en blanco y puntos de la cédula y correo
           nueva_cedula = "".join(c for c in nueva_cedula_input if c.isdigit()).strip()
           nuevo_email = nuevo_email_input.strip()
 
           if nuevo_usuario and nueva_cedula and nuevo_email and nuevo_pass:
-            # Validaciones adicionales de formato limpio
             if " " in nuevo_email:
               st.error("El correo electrónico no puede contener espacios en blanco.")
-            elif not nueva_cedula_input.strip().isdigit() and any(c in nueva_cedula_input for c in ['.', ' ']):
-              # Mensaje preventivo si intentó usar puntos o espacios
-              # (La limpieza ya extrajo solo los dígitos, pero avisamos si se limpió)
-              pass
 
             if usuarios_col.find_one({"usuario": nuevo_usuario}):
               st.warning("El nombre de usuario ya está en uso.")
@@ -141,7 +134,6 @@ def show_dashboard():
   st.sidebar.markdown("---")
 
   # Definir menú dinámico basado en el rol
- # Definir menú dinámico basado en el rol
   opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas"]
 
   if st.session_state.rol == "Administrador":
@@ -159,14 +151,19 @@ def show_dashboard():
   elif st.session_state.rol == "Estudiante":
     opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas", "❓ Ayuda y Soporte"]
 
-  # Si se hizo clic en una tarjeta, establecemos ese valor por defecto en el index del radio
-  menu_default_idx = 0
-  if "menu_activo_app" in st.session_state and st.session_state["menu_activo_app"] in opciones_menu:
-    menu_default_idx = opciones_menu.index(st.session_state["menu_activo_app"])
-    # Limpiamos la variable para que el usuario pueda volver a navegar libremente por el sidebar después
-    del st.session_state["menu_activo_app"]
+  # Asegurar que el índice seleccionado corresponda al estado actual
+  if st.session_state.menu_activo not in opciones_menu:
+    st.session_state.menu_activo = "🏠 Inicio"
 
-  menu = st.sidebar.radio("Navegación", opciones_menu, index=menu_default_idx)
+  indice_actual = opciones_menu.index(st.session_state.menu_activo)
+
+  # Radio de navegación vinculado al session_state
+  menu = st.sidebar.radio("Navegación", opciones_menu, index=indice_actual, key="radio_menu_principal")
+
+  # Sincronizar si el usuario cambia directamente en el radio sidebar
+  if menu != st.session_state.menu_activo:
+    st.session_state.menu_activo = menu
+    st.rerun()
 
   st.sidebar.markdown("---")
   if st.sidebar.button("Cerrar Sesión", type="primary"):
@@ -174,12 +171,15 @@ def show_dashboard():
     st.session_state.username = ""
     st.session_state.rol = ""
     st.session_state.cedula = ""
+    st.session_state.menu_activo = "🏠 Inicio"
     if "mostrar_modulo_solicitud" in st.session_state:
       del st.session_state.mostrar_modulo_solicitud
     st.rerun()
-      
-  # Enrutador
-  if menu == "🏠 Inicio":
+
+  # Enrutador basado en st.session_state.menu_activo
+  current_view = st.session_state.menu_activo
+
+  if current_view == "🏠 Inicio":
     if st.session_state.rol == "Estudiante":
       st.title("👤 Mi Perfil de Estudiante")
       db = get_db()
@@ -226,7 +226,7 @@ def show_dashboard():
         st.warning("⚠️ No se encontró un registro en la tabla de estudiantes asociado a tu cédula registrada.")
         st.write(f"Cédula registrada en tu cuenta: **{cedula_est}**")
         st.info("Por favor contacta al administrador si tus datos no aparecen sincronizados.")
-        
+    
     elif st.session_state.rol == "Docente":
       st.title("👤 Perfil de Docente y Accesos Directos")
       st.write(f"¡Hola, **{st.session_state.username}**! Bienvenido al panel principal.")
@@ -238,57 +238,56 @@ def show_dashboard():
       col_d1, col_d2, col_d3 = st.columns(3)
       with col_d1:
         st.info("📊 **Calificaciones y Notas**\n\nCarga y gestiona las notas de tus estudiantes.")
-        if st.button("Abrir Módulo de Notas", key="card_btn_notas", type="primary"):
-          # Forzamos la selección en el session_state que controla el menú lateral
-          st.session_state["menu_activo_app"] = "📊 Calificaciones y Notas"
+        if st.button("Abrir Módulo de Notas", type="primary", use_container_width=True):
+          st.session_state.menu_activo = "📊 Calificaciones y Notas"
           st.rerun()
       with col_d2:
         st.info("📄 **Actas de Notas**\n\nGenera y descarga las actas oficiales en PDF.")
-        if st.button("Abrir Módulo de Actas", key="card_btn_actas", type="primary"):
-          st.session_state["menu_activo_app"] = "📄 Actas de Notas"
+        if st.button("Abrir Módulo de Actas", type="primary", use_container_width=True):
+          st.session_state.menu_activo = "📄 Actas de Notas"
           st.rerun()
       with col_d3:
         st.info("❓ **Ayuda y Soporte**\n\nConsulta guías o contacta al administrador.")
-        if st.button("Abrir Ayuda y Soporte", key="card_btn_ayuda", type="primary"):
-          st.session_state["menu_activo_app"] = "❓ Ayuda y Soporte"
+        if st.button("Abrir Ayuda y Soporte", type="primary", use_container_width=True):
+          st.session_state.menu_activo = "❓ Ayuda y Soporte"
           st.rerun()
     else:
       st.title("Panel de Control Académico")
       st.write(f"Hola **{st.session_state.username}**, panel activo.")
 
-  elif menu == "👨‍🎓 Estudiantes":
+  elif current_view == "👨‍🎓 Estudiantes":
     from modules import estudiantes
     estudiantes.render()
 
-  elif menu == "🏛️ Carreras y Materias":
+  elif current_view == "🏛️ Carreras y Materias":
     from modules import carreras
     carreras.render()
 
-  elif menu == "📊 Calificaciones y Notas":
+  elif current_view == "📊 Calificaciones y Notas":
     from modules import notas
     notas.render()
 
-  elif menu == "👥 Gestión de Usuarios":
+  elif current_view == "👥 Gestión de Usuarios":
     from modules import usuarios
     usuarios.render()
 
-  elif menu == "📅 Años Académicos":
+  elif current_view == "📅 Años Académicos":
     st.title("Configuración de Años Académicos")
     st.info("Administración de periodos lectivos...")
 
-  elif menu == "📄 Actas de Notas":
+  elif current_view == "📄 Actas de Notas":
     from modules import actas
     actas.render()
     
-  elif menu == "📂 Importar Excel":
+  elif current_view == "📂 Importar Excel":
     from modules import importador_excel
     importador_excel.render()
 
-  elif menu == "📨 Solicitudes":
+  elif current_view == "📨 Solicitudes":
     from modules import solicitudes
     solicitudes.render_admin()
 
-  elif menu == "❓ Ayuda y Soporte":
+  elif current_view == "❓ Ayuda y Soporte":
      from modules import ayuda_module
      ayuda_module.render()
 
