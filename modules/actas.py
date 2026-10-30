@@ -219,7 +219,7 @@ def render():
       "Asic Cruz Paredes",
       "Asic El Carmen",
       "Asic Ezequiel Zamora",
-      "Asic Guanapa (romulo Betancourt",
+      "Asic Guanapa (romulo Betancourt)",
       "Asic Manuel Palacio Fajardo",
       "Asic Obispo (virgen Del Real)",
       "Asic Pedraza (ciudad Bolivia)",
