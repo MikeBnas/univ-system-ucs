@@ -21,6 +21,8 @@ if "cedula" not in st.session_state:
   st.session_state.cedula = ""
 if "menu_activo" not in st.session_state:
   st.session_state.menu_activo = "🏠 Inicio"
+if "menu_sidebar" not in st.session_state:
+  st.session_state.menu_sidebar = "🏠 Inicio"
 
 
 def show_auth_screen():
@@ -67,6 +69,7 @@ def show_auth_screen():
               st.session_state.rol = user_doc.get("rol", "Estudiante")
               st.session_state.cedula = user_doc.get("cedula", "")
               st.session_state.menu_activo = "🏠 Inicio"
+              st.session_state.menu_sidebar = "🏠 Inicio"
               st.success("¡Bienvenido!")
               st.rerun()
             else:
@@ -151,12 +154,21 @@ def show_dashboard():
   elif st.session_state.rol == "Estudiante":
     opciones_menu = ["🏠 Inicio", "📊 Calificaciones y Notas", "❓ Ayuda y Soporte"]
 
-  # Asegurar que el menú activo esté dentro de las opciones permitidas
+  # Validar el estado del módulo actual
   if st.session_state.menu_activo not in opciones_menu:
     st.session_state.menu_activo = "🏠 Inicio"
+  if st.session_state.menu_sidebar not in opciones_menu:
+    st.session_state.menu_sidebar = st.session_state.menu_activo
 
-  # Radio de navegación vinculado directamente a st.session_state.menu_activo via key
-  st.sidebar.radio("Navegación", opciones_menu, key="menu_activo")
+  # Radio de navegación con clave separada para evitar conflicto con cambios manuales
+  index_actual = opciones_menu.index(st.session_state.menu_activo)
+  selected = st.sidebar.radio(
+      "Navegación",
+      opciones_menu,
+      index=index_actual,
+      key="menu_sidebar"
+  )
+  st.session_state.menu_activo = selected
 
   st.sidebar.markdown("---")
   if st.sidebar.button("Cerrar Sesión", type="primary"):
@@ -165,6 +177,7 @@ def show_dashboard():
     st.session_state.rol = ""
     st.session_state.cedula = ""
     st.session_state.menu_activo = "🏠 Inicio"
+    st.session_state.menu_sidebar = "🏠 Inicio"
     if "mostrar_modulo_solicitud" in st.session_state:
       del st.session_state.mostrar_modulo_solicitud
     st.rerun()
@@ -233,16 +246,19 @@ def show_dashboard():
         st.info("📊 **Calificaciones y Notas**\n\nCarga y gestiona las notas de tus estudiantes.")
         if st.button("Abrir Módulo de Notas", type="primary", use_container_width=True):
           st.session_state.menu_activo = "📊 Calificaciones y Notas"
+          st.session_state.menu_sidebar = "📊 Calificaciones y Notas"
           st.rerun()
       with col_d2:
         st.info("📄 **Actas de Notas**\n\nGenera y descarga las actas oficiales en PDF.")
         if st.button("Abrir Módulo de Actas", type="primary", use_container_width=True):
           st.session_state.menu_activo = "📄 Actas de Notas"
+          st.session_state.menu_sidebar = "📄 Actas de Notas"
           st.rerun()
       with col_d3:
         st.info("❓ **Ayuda y Soporte**\n\nConsulta guías o contacta al administrador.")
         if st.button("Abrir Ayuda y Soporte", type="primary", use_container_width=True):
           st.session_state.menu_activo = "❓ Ayuda y Soporte"
+          st.session_state.menu_sidebar = "❓ Ayuda y Soporte"
           st.rerun()
     else:
       st.title("Panel de Control Académico")
