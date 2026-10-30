@@ -172,6 +172,7 @@ def show_dashboard():
 
   # Enrutador
   if menu == "🏠 Inicio":
+    # Perfil visible para ambos usuarios (Estudiante y Docente/Admin según aplique)
     if st.session_state.rol == "Estudiante":
       st.title("👤 Mi Perfil de Estudiante")
       db = get_db()
@@ -218,6 +219,31 @@ def show_dashboard():
         st.warning("⚠️ No se encontró un registro en la tabla de estudiantes asociado a tu cédula registrada.")
         st.write(f"Cédula registrada en tu cuenta: **{cedula_est}**")
         st.info("Por favor contacta al administrador si tus datos no aparecen sincronizados.")
+    
+    elif st.session_state.rol == "Docente":
+      st.title("👤 Perfil de Docente y Accesos Directos")
+      st.write(f"¡Hola, **{st.session_state.username}**! Bienvenido al panel principal.")
+      
+      st.markdown("---")
+      st.markdown("### 🚀 Accesos Directos")
+      st.caption("Selecciona una tarjeta para abrir rápidamente los módulos principales:")
+
+      col_d1, col_d2, col_d3 = st.columns(3)
+      with col_d1:
+        st.info("📊 **Calificaciones y Notas**\n\nCarga y gestiona las notas de tus estudiantes.")
+        if st.button("Abrir Notas", key="card_notas"):
+          st.session_state.menu_seleccionado_tarjeta = "📊 Calificaciones y Notas"
+          st.rerun()
+      with col_d2:
+        st.info("📄 **Actas de Notas**\n\nGenera y descarga las actas oficiales en PDF.")
+        if st.button("Abrir Actas", key="card_actas"):
+          st.session_state.menu_seleccionado_tarjeta = "📄 Actas de Notas"
+          st.rerun()
+      with col_d3:
+        st.info("❓ **Ayuda y Soporte**\n\nConsulta guías o contacta al administrador.")
+        if st.button("Abrir Ayuda", key="card_ayuda"):
+          st.session_state.menu_seleccionado_tarjeta = "❓ Ayuda y Soporte"
+          st.rerun()
     else:
       st.title("Panel de Control Académico")
       st.write(f"Hola **{st.session_state.username}**, panel activo.")
