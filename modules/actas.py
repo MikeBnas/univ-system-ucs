@@ -414,6 +414,7 @@ def render():
           del st.session_state["estudiante_pendiente_agregar"]
 
     st.markdown("### 📋 Verificación Final del Listado (Orden Alfabético por Apellido)")
+    st.markdown("### Nota: Puedes eliminar estudiantes del listado desmarcándolo del listado")
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
     
     if "apellidos" in df_est.columns:
