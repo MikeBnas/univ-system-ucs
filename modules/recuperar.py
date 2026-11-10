@@ -1,194 +1,77 @@
-import random
-import string
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
 import streamlit as st
 from database import get_db
-from modules.security import hash_password
-
-
-def generar_codigo_aleatorio(length=6):
-    """Genera un código alfanumérico seguro de 6 dígitos para la recuperación."""
-    return "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=length)
-    )
-
-
-def enviar_correo_smtp(destinatario, codigo):
-    """
-    Envía el correo de recuperación intentando múltiples puertos SMTP 
-    para evadir bloqueos de ISP y evitar el error SMTP time out.
-    """
-    try:
-        # Extraer credenciales desde los secretos de Streamlit
-        if "gmail" in st.secrets:
-            remitente = st.secrets["gmail"]["EMAIL"]
-            password_app = st.secrets["gmail"]["APP_PASSWORD"]
-        elif "GMAIL_EMAIL" in st.secrets:
-            remitente = st.secrets["GMAIL_EMAIL"]
-            password_app = st.secrets["GMAIL_APP_PASSWORD"]
-        else:
-            remitente = st.secrets["general"]["GMAIL_EMAIL"]
-            password_app = st.secrets["general"]["GMAIL_APP_PASSWORD"]
-    except KeyError:
-        return False, "⚠️ Las credenciales de Gmail (EMAIL / APP_PASSWORD) no están configuradas en st.secrets."
-
-    # Armar la estructura del mensaje MIME
-    msg = MIMEMultipart()
-    msg["From"] = f"Sistema Académico <{remitente}>"
-    msg["To"] = destinatario
-    msg["Subject"] = "Código de Recuperación de Contraseña"
-
-    html_content = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #2b6cb0;">Recuperación de Contraseña</h2>
-        <p>Has solicitado restablecer tu contraseña en el sistema académico.</p>
-        <p>Tu código de recuperación temporal es:</p>
-        <div style="background: #edf2f7; padding: 10px 20px; font-size: 24px; font-weight: bold; letter-spacing: 2px; display: inline-block; border-radius: 5px; color: #2d3748;">
-            {codigo}
-        </div>
-        <p style="margin-top: 20px; font-size: 12px; color: #718096;">Este código expira en 15 minutos. Si no solicitaste este cambio, puedes ignorar este mensaje.</p>
-    </div>
-    """
-    msg.attach(MIMEText(html_content, "html"))
-
-    # Lista de combinaciones de puertos y métodos de conexión para evadir bloqueos de red
-    configuraciones_smtp = [
-        {"puerto": 587, "tipo": "STARTTLS"},
-        {"puerto": 2525, "tipo": "STARTTLS"},  # Puerto alternativo para ISPs restrictivos
-        {"puerto": 465, "tipo": "SSL"}
-    ]
-
-    ultimo_error = ""
-
-    for config in configuraciones_smtp:
-        puerto = config["puerto"]
-        tipo = config["tipo"]
-        try:
-            if tipo == "STARTTLS":
-                # Timeout reducido a 5 segundos por intento para responder rápido
-                with smtplib.SMTP("smtp.gmail.com", puerto, timeout=5) as server:
-                    server.ehlo()
-                    server.starttls()
-                    server.ehlo()
-                    server.login(remitente, password_app)
-                    server.send_message(msg)
-                    return True, "¡Correo enviado con éxito! Revisa tu bandeja de entrada o spam."
-            elif tipo == "SSL":
-                with smtplib.SMTP_SSL("smtp.gmail.com", puerto, timeout=5) as server:
-                    server.login(remitente, password_app)
-                    server.send_message(msg)
-                    return True, "¡Correo enviado con éxito! Revisa tu bandeja de entrada o spam."
-        except Exception as err:
-            ultimo_error = str(err)
-            # Continúa al siguiente puerto si este falló o dio timeout
-            continue
-
-    return False, f"Error al enviar correo por SMTP (Todos los puertos fallaron por timeout): {ultimo_error}"
-
+from modules.security import hash_password, verificar_password
 
 def render():
-    st.subheader("🔑 Recuperación de Contraseña")
-    st.info(
-        "Ingresa tu correo electrónico registrado para enviarte un código temporal de recuperación."
-    )
+    st.subheader("🔑 Recuperación de Contraseña (Verificación Institucional)")
+    st.info("Ingresa tu correo o usuario junto con tu número de cédula para validar tu identidad.")
 
     db = get_db()
     usuarios_col = db["usuarios"]
 
-    with st.form("form_recuperar"):
-        correo_ingresado = st.text_input("Correo Electrónico Registrado").strip().lower()
-        btn_enviar = st.form_submit_button("📤 Enviar Código de Recuperación")
+    if "paso_recup" not in st.session_state:
+        st.session_state.paso_recup = 1
+    if "user_id_recup" not in st.session_state:
+        st.session_state.user_id_recup = None
 
-    if btn_enviar:
-        if not correo_ingresado:
-            st.error("Por favor, introduce un correo electrónico.")
-        else:
-            # Buscar usuario por correo o email en MongoDB de forma flexible
-            usuario = usuarios_col.find_one({
-                "$or": [{"correo": correo_ingresado}, {"email": correo_ingresado}]
-            })
+    # PASO 1: Validar Identidad (Usuario/Correo + Cédula)
+    if st.session_state.paso_recup == 1:
+        with st.form("form_validar_identidad"):
+            usuario_input = st.text_input("Usuario o Correo Registrado").strip()
+            cedula_input = st.text_input("Cédula de Identidad (sin puntos)").strip()
+            btn_validar = st.form_submit_button("🔍 Verificar Datos", type="primary")
 
-            if usuario:
-                # Generar token de 6 caracteres y fecha de expiración (15 minutos)
-                token = generar_codigo_aleatorio()
-                expiracion = datetime.utcnow() + timedelta(minutes=15)
-
-                filtro_correo = usuario.get("correo", usuario.get("email", correo_ingresado))
-
-                # Guardar el token temporal y su expiración en el documento del usuario
-                usuarios_col.update_one(
-                    {"$or": [{"correo": filtro_correo}, {"email": filtro_correo}]},
-                    {
-                        "$set": {
-                            "reset_token": token,
-                            "reset_expiracion": expiracion,
-                        }
-                    },
-                )
-
-                # Despachar el correo mediante Gmail SMTP
-                exito, mensaje = enviar_correo_smtp(correo_ingresado, token)
-                
-                if exito:
-                    st.success(mensaje)
-                    st.session_state["paso_recuperacion"] = "verificar"
-                    st.session_state["correo_recuperando"] = correo_ingresado
-                else:
-                    st.error(mensaje)
+        if btn_validar:
+            if not usuario_input or not cedula_input:
+                st.error("Por favor completa todos los campos.")
             else:
-                st.warning(
-                    "No se encontró ningún usuario registrado con ese correo electrónico."
-                )
+                # Limpiar cédula
+                cedula_limpia = "".join(c for c in cedula_input if c.isdigit())
+                
+                # Buscar en la colección de usuarios
+                user_doc = usuarios_col.find_one({
+                    "$or": [{"usuario": usuario_input}, {"email": usuario_input}, {"correo": usuario_input}]
+                })
 
-    # Paso 2: Formulario de verificación de código y cambio de contraseña
-    if st.session_state.get("paso_recuperacion") == "verificar":
-        st.markdown("---")
-        st.subheader("🔒 Restablecer Contraseña")
+                if user_doc:
+                    cedula_guardada = str(user_doc.get("cedula", "")).strip()
+                    if cedula_guardada == cedula_limpia and cedula_limpia != "":
+                        st.session_state.user_id_recup = user_doc["_id"]
+                        st.session_state.paso_recup = 2
+                        st.success("¡Identidad verificada exitosamente!")
+                        st.rerun()
+                    else:
+                        st.error("La cédula ingresada no coincide con los registros del usuario.")
+                else:
+                    st.error("No se encontró ningún usuario con los datos ingresados.")
 
-        with st.form("form_reset_password"):
-            codigo_ingresado = st.text_input("Introduce el código de 6 dígitos recibido").strip().upper()
+    # PASO 2: Restablecer Contraseña
+    elif st.session_state.paso_recup == 2:
+        st.subheader("🔒 Ingresa tu Nueva Contraseña")
+
+        with st.form("form_nueva_clave"):
             nueva_pass = st.text_input("Nueva Contraseña", type="password")
             confirmar_pass = st.text_input("Confirmar Nueva Contraseña", type="password")
-            btn_cambiar = st.form_submit_button("💾 Guardar Nueva Contraseña")
+            btn_guardar = st.form_submit_button("💾 Actualizar Contraseña", type="primary")
 
-        if btn_cambiar:
-            correo_obj = st.session_state.get("correo_recuperando")
-            user_data = usuarios_col.find_one({
-                "$or": [{"correo": correo_obj}, {"email": correo_obj}]
-            })
-
-            if not user_data:
-                st.error("Sesión de recuperación inválida. Vuelve a intentarlo.")
-                return
-
-            token_valido = user_data.get("reset_token") == codigo_ingresado
-            expiracion_valida = datetime.utcnow() <= user_data.get(
-                "reset_expiracion", datetime.utcnow()
-            )
-
-            if not token_valido:
-                st.error("El código de recuperación es incorrecto.")
-            elif not expiracion_valida:
-                st.error("El código ha expirado. Solicita uno nuevo.")
+        if btn_guardar:
+            if not nueva_pass or not confirmar_pass:
+                st.error("Ingresa y confirma la nueva contraseña.")
             elif nueva_pass != confirmar_pass:
-                st.error("Las contraseñas nuevas no coinciden.")
+                st.error("Las contraseñas no coinciden.")
             elif len(nueva_pass) < 6:
                 st.error("La contraseña debe tener al menos 6 caracteres.")
             else:
-                filtro_update = user_data.get("correo", user_data.get("email", correo_obj))
-                
+                # Actualizar contraseña cifrada con hash
                 usuarios_col.update_one(
-                    {"$or": [{"correo": filtro_update}, {"email": filtro_update}]},
-                    {
-                        "$set": {"password": hash_password(nueva_pass)},
-                        "$unset": {"reset_token": "", "reset_expiracion": ""},
-                    },
+                    {"_id": st.session_state.user_id_recup},
+                    {"$set": {"password": hash_password(nueva_pass)}}
                 )
-                st.success(
-                    "¡Contraseña actualizada con éxito! Ya puedes iniciar sesión con tu nueva clave."
-                )
-                st.session_state["paso_recuperacion"] = None
-                st.session_state["correo_recuperando"] = None
+                st.success("¡Contraseña actualizada con éxito! Ya puedes iniciar sesión con tu nueva clave.")
+                st.session_state.paso_recup = 1
+                st.session_state.user_id_recup = None
+
+        if st.button("⬅️ Cancelar"):
+            st.session_state.paso_recup = 1
+            st.session_state.user_id_recup = None
+            st.rerun()
