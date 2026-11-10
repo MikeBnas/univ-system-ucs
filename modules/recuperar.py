@@ -17,7 +17,7 @@ def generar_codigo_aleatorio(length=6):
 
 
 def enviar_correo_smtp(destinatario, codigo):
-    """Envía el correo de recuperación utilizando Gmail SMTP con STARTTLS (Puerto 587)."""
+    """Envía el correo de recuperación utilizando Gmail SMTP con STARTTLS (Puerto 587) optimizado."""
     try:
         # Extraer credenciales desde los secretos de Streamlit
         if "gmail" in st.secrets:
@@ -48,13 +48,14 @@ def enviar_correo_smtp(destinatario, codigo):
         """
         msg.attach(MIMEText(html_content, "html"))
 
-        # Conexión por puerto 587 con STARTTLS (Más compatible y seguro)
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
-            server.ehlo()
-            server.starttls()  # Eleva la conexión a canal cifrado SSL/TLS
-            server.ehlo()
-            server.login(remitente, password_app)
-            server.send_message(msg)
+        # Conexión SMTP estándar en el puerto 587 con timeout explícito de 15 segundos
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(remitente, password_app)
+        server.send_message(msg)
+        server.quit()
             
         return True, "¡Correo enviado con éxito! Revisa tu bandeja de entrada o spam."
     except KeyError:
