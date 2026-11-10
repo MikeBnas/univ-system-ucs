@@ -49,7 +49,7 @@ def enviar_correo_smtp(destinatario, codigo):
         msg.attach(MIMEText(html_content, "html"))
 
         # Conexión SMTP estándar en el puerto 587 con timeout explícito de 15 segundos
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
+        server = smtplib.SMTP("smtp.gmail.com", 2525, timeout=15)
         server.ehlo()
         server.starttls()
         server.ehlo()
