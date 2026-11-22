@@ -41,6 +41,7 @@ def render():
           "Estudiantes",
           "Inscripciones (Historial)",
           "Calificaciones y Notas",
+          "Trabajos Especiales de Grado (TEG)"
       ],
   )
 
@@ -78,7 +79,9 @@ def render():
         elif tipo_carga == "Calificaciones y Notas":
           coleccion = db["notas"]
           clave_unica = None  # Las notas se manejan por combinación única de cédula, materia y tipo de evaluación
-
+        elif tipo_carga == "Trabajos Especiales de Grado (TEG)":
+          coleccion = db["trabajos_especiales"]
+          clave_unica = "id"
         if coleccion is not None:
           contador_nuevos = 0
           contador_actualizados = 0
@@ -125,6 +128,44 @@ def render():
                 
                 resultado = coleccion.update_one(
                     filtro_nota, {"$set": doc_nota}, upsert=True
+                )
+                if resultado.upserted_id:
+                  contador_nuevos += 1
+                else:
+                  contador_actualizados += 1
+
+            if tipo_carga == "Trabajos Especiales de Grado (TEG)":
+              teg_id = str(item_limpio.get("id", "")).strip()
+              if teg_id.endswith(".0"):
+                teg_id = teg_id[:-2]
+            
+              titulo_val = str(item_limpio.get("titulo", "")).strip()
+            
+              if teg_id and titulo_val:
+                anio_raw = str(item_limpio.get("anio", "")).strip()
+                if anio_raw.endswith(".0"):
+                  anio_raw = anio_raw[:-2]
+            
+                try:
+                  votos_val = int(float(item_limpio.get("votos", 0)))
+                except (ValueError, TypeError):
+                  votos_val = 0
+            
+                doc_teg = {
+                    "id": teg_id,
+                    "titulo": titulo_val,
+                    "descripcion": str(item_limpio.get("descripcion", "")).strip(),
+                    "autor": str(item_limpio.get("autor", "")).strip(),
+                    "anio": anio_raw,
+                    "carrera": str(item_limpio.get("carrera", "")).strip(),
+                    "especialidad": str(item_limpio.get("especialidad", "")).strip(),
+                    "url_imagen": str(item_limpio.get("url_imagen", "")).strip(),
+                    "url_documento": str(item_limpio.get("url_documento", "")).strip(),
+                    "votos": votos_val,
+                }
+            
+                resultado = coleccion.update_one(
+                    {"id": teg_id}, {"$set": doc_teg}, upsert=True
                 )
                 if resultado.upserted_id:
                   contador_nuevos += 1
