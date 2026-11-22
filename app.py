@@ -145,10 +145,11 @@ def show_dashboard():
 
   if st.session_state.rol == "Administrador":
     opciones_menu.extend([
-        "👨‍🎓 Estudiantes",
-        "👥 Gestión de Usuarios",
-        "🏛️ Carreras y Materias",
+        "👨‍🎓 Estudiantes",        
         "📄 Actas de Notas",
+        "📚 Biblioteca TEG",
+        "🏛️ Carreras y Materias",
+        "👥 Gestión de Usuarios",
         "📨 Solicitudes",
         "📂 Importar Excel"        
     ])
@@ -257,6 +258,10 @@ def show_dashboard():
   elif menu == "❓ Ayuda y Soporte":
      from modules import ayuda_module
      ayuda_module.render()
+
+  elif menu == "📚 Biblioteca TEG":
+     from modules import biblioteca_teg
+     biblioteca_teg.render()
 
 if not st.session_state.logged_in:
   show_auth_screen()
