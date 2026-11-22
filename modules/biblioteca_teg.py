@@ -202,12 +202,12 @@ def render_guia_teg():
 
   # Leer enlaces desde st.secrets si existen, o usar los enlaces configurados por defecto
   url_manual_teg = "https://drive.google.com/file/d/1U4Ew6l8JouaiKwAvdrdrp9b8rDF6VOWb/view?usp=sharing"
-  url_diapositivas_teg = "https://drive.google.com/file/d/REEMPLAZAR_CON_ID_DIAPOSITIVAS_TEG/view?usp=sharing"
+  url_diapositivas_teg = "https://drive.google.com/file/d/1l6MFq9_kIPOD4BA8vE7D8MqEjMoH0ixg/view?usp=sharing"
 
-  if "google_drive" in st.secrets:
-    url_diapositivas_teg = st.secrets["google_drive"].get(
-        "diapositivas_teg_url", url_diapositivas_teg
-    )
+  #if "google_drive" in st.secrets:
+    #url_diapositivas_teg = st.secrets["google_drive"].get(
+        #"diapositivas_teg_url", url_diapositivas_teg
+    #)
 
   col_d1, col_d2 = st.columns(2)
   with col_d1:
