@@ -159,6 +159,7 @@ def render():
                     "anio": anio_raw,
                     "carrera": str(item_limpio.get("carrera", "")).strip(),
                     "especialidad": str(item_limpio.get("especialidad", "")).strip(),
+                    "area": str(item_limpio.get("area", "")).strip(),
                     "url_imagen": str(item_limpio.get("url_imagen", "")).strip(),
                     "url_documento": str(item_limpio.get("url_documento", "")).strip(),
                     "votos": votos_val,
