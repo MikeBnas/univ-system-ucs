@@ -205,9 +205,7 @@ def render_guia_teg():
   url_diapositivas_teg = "https://drive.google.com/file/d/REEMPLAZAR_CON_ID_DIAPOSITIVAS_TEG/view?usp=sharing"
 
   if "google_drive" in st.secrets:
-    url_manual_teg = st.secrets["google_drive"].get(
-        "teg_manual_url", url_manual_teg
-    )
+    url_manual_teg = "https://drive.google.com/file/d/1U4Ew6l8JouaiKwAvdrdrp9b8rDF6VOWb/view?usp=sharing"
     url_diapositivas_teg = st.secrets["google_drive"].get(
         "diapositivas_teg_url", url_diapositivas_teg
     )
