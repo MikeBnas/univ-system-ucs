@@ -421,7 +421,7 @@ def render():
 
   if "acta_estudiantes" in st.session_state and st.session_state["acta_estudiantes"]:
     st.markdown("---")
-    st.markdown("#### ➕ Agregar estudiante por número de cédula")
+    st.markdown("#### ➕ Agregar estudiante por número de cédula si no aparece en el listado generado")
     cedula_manual = st.text_input("Ingrese el número de cédula del estudiante:")
     
     if st.button("Buscar estudiante"):
