@@ -420,7 +420,7 @@ def render():
     if "apellidos" in df_est.columns:
       df_est = df_est.sort_values(by="apellidos", ascending=True)
 
-    df_est["Incluir en Acta"] = True
+    df_est["Incluir en Acta"] = False
     cols = ["Incluir en Acta"] + [col for col in df_est.columns if col != "Incluir en Acta"]
     df_est = df_est[cols]
 
