@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 from database import db_conectada, get_db
 
+
 def inyectar_estilos_pubmed():
   """Estilos CSS inspirados en PubMed / repositorios científicos modernos y carruseles."""
   st.markdown(
@@ -505,6 +506,331 @@ def render_guia_teg():
       )
 
 
+def render_guia_psiet():
+  """Renderiza la pestaña de orientación metodológica para el PSIET (Programas Nacionales de Formación - Pregrado)."""
+  st.markdown(
+      "### 🌱 Guía Metodológica: Proyecto Socio-Integrador, Educativo y"
+      " Transformador (PSIET)"
+  )
+  st.caption(
+      "Basado en el documento oficial: 'Bases Conceptuales y Guía Metodológica"
+      " para la Implementación del PSIET de los Programas Nacionales de"
+      " Formación (PNF)' — Aprobado por Consejo Universitario según Providencia"
+      " Administrativa N° 2026-CUEP-26-09 (Julio 2026)."
+  )
+
+  st.info(
+      "**¿Qué es el PSIET?** Es el instrumento político, teórico y metodológico"
+      " de la UCS 'Hugo Chávez Frías' para los estudios de **pregrado (PNF)**."
+      " Integra los contenidos curriculares con la praxis transformadora en el"
+      " territorio mediante la **Investigación-Acción Participativa y"
+      " Transformadora (IAPT)**, articulando tres pilares: **Educación en"
+      " Ciencias de la Salud, Interacción Social e Investigación**."
+  )
+
+  # Sub-pestañas estructuradas con todo el contenido metodológico del documento
+  tab_bases, tab_momentos, tab_fases, tab_informe = st.tabs([
+      "🧭 Fundamentos y Ámbitos",
+      "🔄 Momentos y Fases (Trayectos)",
+      "📋 Desarrollo Metodológico (ASIS y Sistematización)",
+      "📑 Informe Final, Defensa y Evaluación",
+  ])
+
+  # ------------------------------------------------------------------------------
+  # 1. FUNDAMENTOS, ENFOQUES, ACTORES Y ÁMBITOS DE ACCIÓN
+  # ------------------------------------------------------------------------------
+  with tab_bases:
+    st.markdown("#### Pilares Teóricos, Epistemológicos y Enfoques")
+    c_f1, c_f2 = st.columns(2)
+    with c_f1:
+      with st.container(border=True):
+        st.markdown("**🏛️ Fundamentos Teóricos y Políticos**")
+        st.markdown(
+            "- **Pedagogía Crítica (Paulo Freire):** Diálogo de saberes horizontal"
+            " entre estudiante, docente y comunidad, superando la educación"
+            " bancaria.\n"
+            "- **Materialismo Dialéctico y Teoría Crítica:** Estudio de la"
+            " realidad tangible y transformación de inequidades sociales.\n"
+            "- **Salud Colectiva y Determinación Social:** Abordaje integral"
+            " del proceso salud-enfermedad más allá del modelo biomédico.\n"
+            "- **Marco Legal y Político:** CRBV (Arts. 2, 3, 102, 110), Misión"
+            " Alma Mater, LOE, LOCTI, Leyes del Poder Popular y Plan de la"
+            " Patria 2025-2031."
+        )
+    with c_f2:
+      with st.container(border=True):
+        st.markdown("**🔬 Enfoque Metodológico (IAPT y Multimétodo)**")
+        st.markdown(
+            "- **Eje Central — IAPT:** Investigación-Acción Participativa y"
+            " Transformadora (Fals Borda / Freire), donde la comunidad es"
+            " sujeto activo de su propio cambio.\n"
+            "- **Complementariedad Multimétodo:** Integración dialéctica entre"
+            " lo **cuantitativo** (dimensiona el nudo crítico con datos"
+            " epidemiológicos y ASIS) y lo **cualitativo** (comprende las"
+            " subjetividades, vivencias y procesos sociales).\n"
+            "- **Estrategias Pedagógicas:** Aprendizaje Basado en Problemas"
+            " (ABP), Aprendizaje-Servicio (ApS) e Integración de Saberes."
+        )
+
+    st.markdown("#### 🎯 Ámbitos de Acción Territorial y Roles")
+    col_amb, col_act = st.columns(2)
+    with col_amb:
+      st.markdown("**Tres (3) Escenarios de Despliegue:**")
+      st.markdown(
+          "1. **Ámbito Comunitario (Territorio Social):** Interacción directa"
+          " con Consejos Comunales, Comunas y Comités de Salud.\n"
+          "2. **Área de Salud Integral Comunitaria (ASIC):** Consultorios"
+          " Populares, CDI, SRI, CAT, puntos odontológicos y ópticas.\n"
+          "3. **Servicios de Seguridad y Salud:** Hogares, centros educativos,"
+          " espacios laborales y de esparcimiento."
+      )
+    with col_act:
+      st.markdown("**Rol de los Actores Clave:**")
+      st.markdown(
+          "- **Estudiante (Agente de Cambio):** Gestiona, investiga"
+          " críticamente, facilita el diálogo de saberes e integra las"
+          " unidades curriculares en el territorio.\n"
+          "- **Docente-Tutor (Mentor Estratégico):** Acompaña pedagógicamente,"
+          " media con la Red de Salud, garantiza el rigor ético-metodológico y"
+          " evalúa formativamente."
+      )
+
+  # ------------------------------------------------------------------------------
+  # 2. METÓDICA: LOS 3 MOMENTOS Y 4 FASES POR TRAYECTO
+  # ------------------------------------------------------------------------------
+  with tab_momentos:
+    st.markdown("#### Los Tres (3) Momentos Transversales del PSIET")
+    st.markdown(
+        "La metódica es dialéctica, flexible y retrospectiva. Cada fase"
+        " transcurre a través de **tres momentos dinámicos**:"
+    )
+
+    m1, m2, m3 = st.columns(3)
+    with m1:
+      st.info(
+          "**Momento 1: Gestión y Sistematización**\n\n"
+          "Diseño del plan de acción, aplicación de técnicas y **Registro"
+          " Ordenado de la Experiencia (ROE)** para producir conocimiento"
+          " situado."
+      )
+    with m2:
+      st.warning(
+          "**Momento 2: Ejecución**\n\n"
+          "Materialización del plan en el ASIC/comunidad, coordinación del"
+          " equipo, ajustes tácticos y comunicación constante."
+      )
+    with m3:
+      st.success(
+          "**Momento 3: Informe de Aprendizaje**\n\n"
+          "Documentación integral de hallazgos, memoria descriptiva, impacto"
+          " político, dimensiones del saber y aportes al SPNS."
+      )
+
+    st.markdown("---")
+    st.markdown("#### Distribución de Fases por Trayecto y Modalidad de PNF")
+
+    df_trayectos = pd.DataFrame([
+        {
+            "Modalidad del PNF": "Con salida intermedia (2 años)",
+            "Trayecto I": "Fase I (Diagnóstico) y Fase II (Diseño)",
+            "Trayecto II": "Fase III (Ejecución) y Fase IV (Valoración)",
+            "Trayecto III": "Continuidad / Profundización del PSIET",
+            "Trayecto IV (Licenciatura)": (
+                "Producción Científica / Inv. Hipotética / Profundización"
+            ),
+        },
+        {
+            "Modalidad del PNF": "Salida intermedia (3 años) o sin salida",
+            "Trayecto I": "Fase I: Diagnóstico Participativo (ASIS)",
+            "Trayecto II": "Fase II: Diseño y Plan de Acción",
+            "Trayecto III": "Fase III (Ejecución) y Fase IV (Valoración)",
+            "Trayecto IV (Licenciatura)": (
+                "Producción Científica / Inv. Hipotética / Profundización"
+            ),
+        },
+    ])
+    st.dataframe(df_trayectos, use_container_width=True, hide_index=True)
+
+    st.caption(
+        "*Para optar al grado de Licenciatura en el Trayecto IV, se da"
+        " continuidad al PSIET mediante: Artículo Científico, Investigación"
+        " Hipotética o Actualización y Profundización del proyecto.*"
+    )
+
+  # ------------------------------------------------------------------------------
+  # 3. DESARROLLO METODOLÓGICO PASO A PASO (FASES I A IV)
+  # ------------------------------------------------------------------------------
+  with tab_fases:
+    st.markdown("#### Construcción Colectiva de las Cuatro (4) Fases")
+
+    with st.expander(
+        "📌 FASE I: Diagnóstico Participativo — Análisis de la Situación de Salud (ASIS)",
+        expanded=True,
+    ):
+      st.markdown(
+          "Identificación de nudos críticos mediante el diálogo entre el saber"
+          " popular y el saber técnico del ASIC. Ejes obligatorios del ASIS:\n"
+          "1. **Caracterización de la Comunidad:** Identidad local, memoria"
+          " histórica (máx. 2 cuartillas), geopolítica/límites, base"
+          " económica, servicios públicos y **Pirámide Poblacional**.\n"
+          "2. **Factores Protectores y Nocivos:** Dimensión socio-ambiental"
+          " (agua, excretas, vectores, vivienda), social/laboral, biológica y"
+          " estilos de vida.\n"
+          "3. **Servicios de Salud y Dispensarización:** Inventario de la red"
+          " (CP, CDI, SRI, CAT) y clasificación dispensarial (**Grupo I:**"
+          " sanos, **Grupo II:** con riesgo, **Grupo III:** enfermos, **Grupo"
+          " IV:** con discapacidad).\n"
+          "4. **Daños y Problemas de Salud:** Morbilidad (incidencia y"
+          " prevalencia), caracterización de discapacidad y mortalidad"
+          " (criterio de evitabilidad).\n"
+          "5. **Participación e Intersectorialidad:** Distinción entre"
+          " *necesidades sentidas* y *necesidades reales*, y articulación con"
+          " Misiones y Consejos Comunales.\n"
+          "6. **Datos del Hogar (si aplica abordaje familiar):** Uso de"
+          " **Historia Clínica Familiar (Anexo 6)** y **Familiograma (Anexo 7)**."
+      )
+
+    with st.expander("📌 FASE II: Diseño — Propuesta Transformadora y Plan de Acción"):
+      st.markdown(
+          "- **Matriz FODA Participativa:** Análisis interno (Fortalezas y"
+          " Debilidades) y externo (Oportunidades y Amenazas) junto a líderes"
+          " comunitarios.\n"
+          "- **Objetivos y Propósitos:** Objetivo General (en infinitivo,"
+          " alineado al PNF y líneas MPPS/UCS), Objetivos Específicos y"
+          " Propósitos (Educativos, de Enseñanza, Integración y"
+          " Transformación).\n"
+          "- **Plan de Acción y Diagrama de Gantt:** Matriz operativa con"
+          " actividades, fechas de inicio/fin, lugar, responsables y recursos,"
+          " vinculada a las competencias específicas del PNF (BIC, EIB, EIC,"
+          " FA, FT, FONO, HBI, HC, IES, OIC, OO, OP, OBD, PIIS, RI, TO).\n"
+          "- **Abordaje Integral:** Promoción, Prevención, Diagnóstico y"
+          " Tratamiento Oportuno, y Rehabilitación/Inclusión."
+      )
+
+    with st.expander(
+        "📌 FASE III: Ejecución — Intervención Territorial y Sistematización"
+    ):
+      st.markdown(
+          "- **Estructura del Título del PSIET:** Debe precisar **Qué** (área y"
+          " grupo beneficiario) + **Dónde** (comunidad, municipio, estado,"
+          " ASIC) + **Cuándo** (año).\n"
+          "- **Sistematización de Experiencias (Oscar Jara / CEPEP):**\n"
+          "  - **ROE (Reconstrucción Ordenada de la Experiencia):** Cronología"
+          " crítica apoyada en el **Cuaderno o Diario de Campo (Anexo 9)**,"
+          " evitando el estilo de diario simple.\n"
+          "  - **AICE (Análisis e Interpretación Crítica):** Problematización"
+          " desde las políticas públicas y dimensiones epistemológica,"
+          " ético-política, socioambiental y curricular.\n"
+          "- **Socialización de Resultados:** Devolución de saberes a los"
+          " protagonistas (comunidad/ASIC), Poder Popular/Público, pueblo"
+          " venezolano y comunidad académica."
+      )
+
+    with st.expander("📌 FASE IV: Valoración Crítica y Reflexión sobre lo Vivido"):
+      st.markdown(
+          "- **Evaluación de Impacto:** Contraste entre metas iniciales y"
+          " realidad transformada.\n"
+          "- **Dimensiones del Saber:** Sistematización de aprendizajes en el"
+          " **Saber-Conocer**, **Saber-Ser**, **Saber-Hacer**, **Saber-Convivir**"
+          " y **Transformar**.\n"
+          "- **Unidades Curriculares Tributarias y Saberes Emergentes:**"
+          " Identificación de asignaturas aplicadas y nuevos conocimientos"
+          " surgidos en la práctica."
+      )
+
+  # ------------------------------------------------------------------------------
+  # 4. FORMATO DE INFORME FINAL (APA 7MA ED.), DEFENSA Y EVALUACIÓN
+  # ------------------------------------------------------------------------------
+  with tab_informe:
+    st.markdown("#### 📐 Normas de Presentación Escrita (APA 7ma Edición)")
+
+    col_norm1, col_norm2 = st.columns(2)
+    with col_norm1:
+      with st.container(border=True):
+        st.markdown("**Formato General del Documento**")
+        st.markdown(
+            "- **Extensión:** Mínimo **20 cuartillas** y máximo **60 páginas**.\n"
+            "- **Papel y Márgenes:** Tamaño **Carta**; márgenes de **2.54 cm"
+            " (1 pulgada)** en los cuatro lados.\n"
+            "- **Tipografía e Interlineado:** **Times New Roman o Arial 12 pt**"
+            " (10 pt permitido en tablas); interlineado **doble (2.0)**.\n"
+            "- **Sangría:** **1.27 cm** en primera línea de párrafos; **sangría"
+            " francesa (1.27 cm)** en Referencias.\n"
+            "- **Paginación:** Portada cuenta como *i* (sin imprimir),"
+            " preliminares en romanos (*ii, iii...*); desde Introducción en"
+            " arábigos (*1, 2, 3...*) continuos hasta Anexos."
+        )
+    with col_norm2:
+      with st.container(border=True):
+        st.markdown("**Estructura del Informe Final (Anexos 1, 2 y 3)**")
+        st.markdown(
+            "- **Portada Oficial (Anexo 1):** Logo UCS, membrete ministerial,"
+            " tipo de informe, Título (máx. 30 palabras), Autores (orden"
+            " alfabético con C.I.), Tutor Metodológico, Lugar, Mes y Año.\n"
+            "- **Preliminares:** Índices (contenidos, cuadros, figuras,"
+            " fotografías, anexos) y **Ficha Resumen del PSIET (Anexo 3)**"
+            " (máx. **300 palabras** + palabras clave en cursiva).\n"
+            "- **Cuerpo:** Introducción, Momento 1 (Gestión), Momento 2"
+            " (Diseño/Ejecución), Momento 3 (Resultados/Aprendizaje),"
+            " Conclusiones, Recomendaciones, Referencias y Anexos."
+        )
+
+    st.markdown("#### 🎤 Presentación Oral y Defensa Integral (Capítulo VIII)")
+    st.warning(
+        "**Pautas de Exposición:** Duración máxima de **30 minutos** totales"
+        " (2 a 3 min por lámina, con intervención obligatoria de todos los"
+        " autores) + ciclo de preguntas. Emplear entre **8 y 11 láminas** o"
+        " póster con el **logo oficial de la UCS** y fuente legible (**14 a 16 pt**)."
+    )
+
+    st.markdown("#### ⚖️ Estructura de Evaluación Anual del PSIET")
+    df_eval = pd.DataFrame([
+        {
+            "Proceso / Actividad a Evaluar": (
+                "1. Gestión del PSIET (Diseño, Ejecución y Resultados)"
+            ),
+            "Ponderación": "40%",
+            "Base 100 pts": "40 pts",
+            "Base 20 pts": "8 pts",
+            "Periodo": "Enero - Septiembre",
+        },
+        {
+            "Proceso / Actividad a Evaluar": (
+                "2. Sistematización de la Experiencia (ROE, AICE, Propuesta e"
+                " Informe de Gestión)"
+            ),
+            "Ponderación": "30%",
+            "Base 100 pts": "30 pts",
+            "Base 20 pts": "6 pts",
+            "Periodo": "Septiembre - Noviembre",
+        },
+        {
+            "Proceso / Actividad a Evaluar": "3. Informe de Aprendizaje",
+            "Ponderación": "20%",
+            "Base 100 pts": "20 pts",
+            "Base 20 pts": "4 pts",
+            "Periodo": "Noviembre - Diciembre",
+        },
+        {
+            "Proceso / Actividad a Evaluar": (
+                "4. Presentación Escrita, Oral y Defensa Integral"
+            ),
+            "Ponderación": "10%",
+            "Base 100 pts": "10 pts",
+            "Base 20 pts": "2 pts",
+            "Periodo": "Diciembre",
+        },
+        {
+            "Proceso / Actividad a Evaluar": "TOTAL GENERAL",
+            "Ponderación": "100%",
+            "Base 100 pts": "100 pts",
+            "Base 20 pts": "20 pts",
+            "Periodo": "Anual",
+        },
+    ])
+    st.dataframe(df_eval, use_container_width=True, hide_index=True)
+
+
 def render():
   inyectar_estilos_pubmed()
 
@@ -526,10 +852,11 @@ def render():
       unsafe_allow_html=True,
   )
 
-  # Pestañas principales: Buscador + Guía Oficial TEG y Diapositivas
-  tab_buscador, tab_guia_teg = st.tabs([
+  # Pestañas principales: Buscador + Guía Oficial TEG (Postgrado) + Guía Oficial PSIET (Pregrado)
+  tab_buscador, tab_guia_teg, tab_guia_psiet = st.tabs([
       "🔎 Buscador Científico & Catálogo",
       "🎓 Guía: Elaboración del TEG y Diapositivas",
+      "🌱 Guía: Elaboración del PSIET (Pregrado - PNF)",
   ])
 
   # ==============================================================================
@@ -773,3 +1100,9 @@ def render():
   # ==============================================================================
   with tab_guia_teg:
     render_guia_teg()
+
+  # ==============================================================================
+  # PESTAÑA 3: GUÍA METODOLÓGICA DEL PSIET (PREGRADO - PNF)
+  # ==============================================================================
+  with tab_guia_psiet:
+    render_guia_psiet()
