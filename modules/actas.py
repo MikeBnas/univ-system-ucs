@@ -210,7 +210,7 @@ def render():
 
   # Listado fijo de ASIC
   LISTA_ASIC = [
-      "Asic Alberto Alvelo Torrealba (jose Gregorio Hernandez)",
+      "Asic Alberto Arvelo Torrealba (jose Gregorio Hernandez)",
       "Asic Andres Eloy Blanco",
       "Asic Antonio Jose De Sucre",
       "Asic Arismendi",
@@ -290,13 +290,43 @@ def render():
     )
     materia_sel = None
 
-  # Selector opcional de ASIC en Parámetros Académicos
+  # Selector opcional de ASIC y Sección en Parámetros Académicos
   st.markdown("---")
-  usar_asic = st.radio("¿Seleccionar estudiantes por ASIC?", ["No", "Sí"], horizontal=True, key="radio_asic_actas")
-  asic_sel = "No Aplica"
-  
-  if usar_asic == "Sí":
-    asic_sel = st.selectbox("Seleccione la ASIC", LISTA_ASIC, key="sel_asic_dropdown")
+  col_asic_sec1, col_asic_sec2 = st.columns(2)
+
+  with col_asic_sec1:
+    usar_asic = st.radio("¿Seleccionar estudiantes por ASIC?", ["No", "Sí"], horizontal=True, key="radio_asic_actas")
+    asic_sel = "No Aplica"
+    if usar_asic == "Sí":
+      asic_sel = st.selectbox("Seleccione la ASIC", LISTA_ASIC, key="sel_asic_dropdown")
+
+  with col_asic_sec2:
+    usar_seccion = st.radio("¿Seleccionar estudiantes por Sección?", ["No", "Sí"], horizontal=True, key="radio_seccion_actas")
+    seccion_sel = "No Aplica"
+    if usar_seccion == "Sí":
+      secciones_raw = db["inscripciones_historial"].distinct(
+          "seccion",
+          {
+              "cod_pnf": cod_pnf_limpio,
+              "trayecto": {"$in": trayectos_a_buscar},
+              "estado": "Activo",
+              "seccion": {"$nin": [None, ""]},
+          },
+      )
+      if not secciones_raw:
+        secciones_raw = db["inscripciones_historial"].distinct(
+            "seccion", {"seccion": {"$nin": [None, ""]}}
+        )
+
+      secciones_ordenadas = sorted(
+          {str(s).strip() for s in secciones_raw if str(s).strip()},
+          key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else x),
+      )
+
+      if secciones_ordenadas:
+        seccion_sel = st.selectbox("Seleccione la Sección", secciones_ordenadas, key="sel_seccion_dropdown")
+      else:
+        seccion_sel = st.text_input("Ingrese el número de Sección (ej. 1, 2, 3)", key="input_seccion_manual").strip()
 
   st.markdown("---")
   st.markdown("### 2. Datos del Docente Responsable")
@@ -321,6 +351,12 @@ def render():
           "trayecto": {"$in": [trayecto_sel, f"Trayecto {trayecto_sel}"]},
           "estado": "Activo",
       }
+      if usar_seccion == "Sí" and seccion_sel and seccion_sel != "No Aplica":
+        sec_limpia = str(seccion_sel).strip()
+        valores_sec = [sec_limpia]
+        if sec_limpia.isdigit():
+          valores_sec.append(int(sec_limpia))
+        query_insc["seccion"] = {"$in": valores_sec}
 
       inscripciones = list(db["inscripciones_historial"].find(query_insc, {"_id": 0}))
       cedulas_inscritas = [str(i["cedula"]).strip() for i in inscripciones if "cedula" in i]
@@ -335,12 +371,13 @@ def render():
         estudiantes_asic_docs = list(db["estudiantes"].find({"asic": asic_sel}, {"_id": 0, "cedula": 1}))
         cedulas_de_estudiantes_asic = [str(e["cedula"]).strip() for e in estudiantes_asic_docs if "cedula" in e]
 
-      # Consolidar cédulas válidas según el filtro ASIC
+      # Consolidar cédulas válidas según el filtro ASIC (y sección si está activa)
       if usar_asic == "Sí" and asic_sel and asic_sel != "No Aplica":
         cedulas_validas = list(set(cedulas_inscritas).intersection(set(cedulas_de_usuarios + cedulas_de_estudiantes_asic)))
-        # Si por alguna razón la inscripción no tiene réplica exacta pero el estudiante pertenece a la ASIC y está inscrito:
         if not cedulas_validas and cedulas_inscritas:
           cedulas_validas = [c for c in cedulas_inscritas if c in cedulas_de_estudiantes_asic or c in cedulas_de_usuarios]
+      elif usar_seccion == "Sí" and seccion_sel and seccion_sel != "No Aplica":
+        cedulas_validas = list(set(cedulas_inscritas))
       else:
         cedulas_validas = list(set(cedulas_inscritas + cedulas_de_usuarios))
 
@@ -369,16 +406,17 @@ def render():
               "trayecto": trayecto_sel,
               "tramo": tramo_sel,
               "asic": asic_sel,
+              "seccion": seccion_sel,
               "anio": anio_academico,
               "docente_nombre": docente_nombre,
               "docente_cedula": docente_cedula,
           }
-          st.success(f"¡Se cargaron {len(estudiantes_encontrados)} estudiantes activos para la ASIC seleccionada!")
+          st.success(f"¡Se cargaron {len(estudiantes_encontrados)} estudiantes activos para la selección realizada!")
         else:
-          st.warning("Se encontraron inscripciones, pero ninguna pertenece a la ASIC seleccionada.")
+          st.warning("Se encontraron inscripciones, pero ninguna pertenece a la ASIC o sección seleccionada.")
           st.session_state["acta_estudiantes"] = []
       else:
-        st.warning("No hay estudiantes activos para esta carrera, trayecto y ASIC seleccionada.")
+        st.warning("No hay estudiantes activos para esta carrera, trayecto, ASIC o sección seleccionada.")
         st.session_state["acta_estudiantes"] = []
 
   if "acta_estudiantes" in st.session_state and st.session_state["acta_estudiantes"]:
@@ -414,13 +452,13 @@ def render():
           del st.session_state["estudiante_pendiente_agregar"]
 
     st.markdown("### 📋 Verificación Final del Listado (Orden Alfabético por Apellido)")
-    st.markdown("### Nota: Puedes eliminar estudiantes del listado desmarcándolo del listado")
+    st.markdown("### Nota: Puedes dejar fuera del acta a un estudiante cuando deseleccionas la casilla Incluir en Acta, por defecto todos estan seleccionados")
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
     
     if "apellidos" in df_est.columns:
       df_est = df_est.sort_values(by="apellidos", ascending=True)
 
-    df_est["Incluir en Acta"] = False
+    df_est["Incluir en Acta"] = True
     cols = ["Incluir en Acta"] + [col for col in df_est.columns if col != "Incluir en Acta"]
     df_est = df_est[cols]
 
