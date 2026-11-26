@@ -210,7 +210,7 @@ def render():
 
   # Listado fijo de ASIC
   LISTA_ASIC = [
-      "Asic Alberto Arvelo Torrealba (jose Gregorio Hernandez)",
+      "Asic Alberto Alvelo Torrealba (jose Gregorio Hernandez)",
       "Asic Andres Eloy Blanco",
       "Asic Antonio Jose De Sucre",
       "Asic Arismendi",
