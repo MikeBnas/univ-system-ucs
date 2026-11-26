@@ -452,7 +452,7 @@ def render():
           del st.session_state["estudiante_pendiente_agregar"]
 
     st.markdown("### 📋 Verificación Final del Listado (Orden Alfabético por Apellido)")
-    st.markdown("### Nota: Puedes dejar fuera del acta a un estudiante cuando deseleccionas la casilla Incluir en Acta, por defecto todos estan seleccionados")
+    st.markdown("### Nota: Puedes dejar fuera del acta a un estudiante cuando deseleccionas la casilla 'Incluir en Acta', por defecto todos estan seleccionados, reporta el caso en Ayuda y Soporte al administrador para coregir al estuidiante en sistema")
     df_est = pd.DataFrame(st.session_state["acta_estudiantes"])
     
     if "apellidos" in df_est.columns:
