@@ -348,7 +348,99 @@ def generar_pdf_pase_trayecto(filename, estudiante, notas_list, carrera_nombre, 
 
   doc.build(story)
 
+def calcular_mejores_promedios(db, cod_pnf=None, top_n=10):
+  """Calcula los mejores promedios por estudiante (máx. 2 decimales).
 
+  Suma todas las notas del estudiante y divide entre el total de notas.
+  Si se pasa `cod_pnf`, filtra por esa carrera; si es None, toma todas.
+  """
+  notas_col = db["notas"]
+  estudiantes_col = db["estudiantes"]
+  carreras_col = db["carreras"]
+  inscripciones_col = db["inscripciones_historial"]
+
+  carreras_map = {
+      str(c.get("cod_pnf", "")).strip(): str(c.get("nombre_pnf", "")).strip()
+      for c in carreras_col.find({}, {"_id": 0})
+      if c.get("cod_pnf")
+  }
+
+  estudiantes_map = {}
+  for est in estudiantes_col.find({}, {"_id": 0}):
+    ced = str(est.get("cedula", "")).strip()
+    if ced:
+      estudiantes_map[ced] = est
+
+  carrera_por_cedula = {}
+  for insc in inscripciones_col.find({}, {"_id": 0}):
+    ced = str(insc.get("cedula", "")).strip()
+    pnf = str(insc.get("cod_pnf", "")).strip()
+    if not ced or not pnf:
+      continue
+    if ced not in carrera_por_cedula or insc.get("estado") == "Activo":
+      carrera_por_cedula[ced] = pnf
+
+  acumulado_notas = {}
+  for n in notas_col.find({}, {"_id": 0}):
+    ced = str(n.get("cedula", "")).strip()
+    if not ced:
+      continue
+    try:
+      valor_nota = float(n.get("nota"))
+    except (ValueError, TypeError):
+      continue
+
+    pnf_nota = str(n.get("cod_pnf", "")).strip() or carrera_por_cedula.get(ced, "")
+    if ced not in carrera_por_cedula and pnf_nota:
+      carrera_por_cedula[ced] = pnf_nota
+
+    if ced not in acumulado_notas:
+      acumulado_notas[ced] = {"suma": 0.0, "cantidad": 0}
+
+    acumulado_notas[ced]["suma"] += valor_nota
+    acumulado_notas[ced]["cantidad"] += 1
+
+  ranking = []
+  for ced, datos in acumulado_notas.items():
+    cantidad = datos["cantidad"]
+    if cantidad <= 0:
+      continue
+
+    pnf_est = carrera_por_cedula.get(ced, "")
+    if cod_pnf and pnf_est != str(cod_pnf).strip():
+      continue
+
+    promedio_2dec = round(datos["suma"] / cantidad, 2)
+    promedio_limpio = int(promedio_2dec) if promedio_2dec.is_integer() else promedio_2dec
+
+    est_info = estudiantes_map.get(ced, {})
+    apellidos = str(est_info.get("apellidos", "")).strip().upper()
+    nombres = str(est_info.get("nombres", "")).strip().upper()
+    nombre_completo = (
+        f"{apellidos}, {nombres}".strip(", ")
+        if (apellidos or nombres)
+        else f"Cédula {ced}"
+    )
+
+    ranking.append({
+        "Puesto": 0,
+        "Cédula": ced,
+        "Estudiante": nombre_completo,
+        "Carrera / PNF": carreras_map.get(pnf_est, pnf_est or "Sin Carrera"),
+        "Total Notas": cantidad,
+        "Promedio": promedio_limpio,
+    })
+
+  ranking.sort(
+      key=lambda x: (float(x["Promedio"]), x["Total Notas"], x["Estudiante"]),
+      reverse=True,
+  )
+
+  top_resultado = ranking[:top_n]
+  for idx, fila in enumerate(top_resultado, start=1):
+    fila["Puesto"] = idx
+
+  return top_resultado
 def render():
   st.subheader("📊 Módulo de Calificaciones, Notas y Recorridos")
 
@@ -399,12 +491,14 @@ def render():
           "➕ Cargar Nota Individual",
           "📋 Listado y Gestión de Notas",
           "📥 Solicitudes Pendientes de Notas",
-          "🎓 Pase de Año"
+          "🎓 Pase de Año",
+          "🏆 Mejores Promedios",
       ])
     else:
       tab_carga, tab_gestion = st.tabs([
           "➕ Cargar Nota Individual",
-          "📋 Listado y Gestión de Notas"
+          "📋 Listado y Gestión de Notas",
+          "🏆 Mejores Promedios",
       ])
       tab_solicitudes_notas = None
       tab_pase_ano = None
@@ -890,3 +984,67 @@ def render():
               st.warning("No hay notas registradas para este estudiante en el trayecto seleccionado.")
           else:
             st.error("No se encontró ningún estudiante con esa cédula.")
+    with tab_mejores_promedios:
+      st.markdown("#### 🏆 Mejores Promedios Estudiantiles")
+      st.info(
+          "Consulta los primeros 10 estudiantes con mayor promedio general o filtra por carrera. "
+          "El promedio se calcula sumando todas las notas del estudiante y dividiendo entre el total de notas (máx. 2 decimales)."
+      )
+
+      carreras_list = list(carreras_col.find({}, {"_id": 0}))
+      opciones_carrera = ["Todas las carreras (Top 10 General)"]
+      etiqueta_a_cod = {}
+
+      for c in carreras_list:
+        cod = str(c.get("cod_pnf", "")).strip()
+        nom = str(c.get("nombre_pnf", "")).strip()
+        if cod:
+          etiqueta = f"{cod} - {nom}" if nom else cod
+          opciones_carrera.append(etiqueta)
+          etiqueta_a_cod[etiqueta] = cod
+
+      col_mp1, col_mp2 = st.columns([3, 1])
+      with col_mp1:
+        carrera_prom_sel = st.selectbox(
+            "Buscar mejores promedios por carrera",
+            opciones_carrera,
+            key="sel_carrera_mejores_promedios",
+        )
+      with col_mp2:
+        st.write("")
+        st.write("")
+        btn_cargar_promedios = st.button(
+            "🔄 Cargar Promedios",
+            type="primary",
+            use_container_width=True,
+            key="btn_cargar_promedios",
+        )
+
+      if "top_promedios_cache" not in st.session_state or btn_cargar_promedios:
+        cod_pnf_sel = etiqueta_a_cod.get(carrera_prom_sel)
+        st.session_state["top_promedios_cache"] = calcular_mejores_promedios(
+            db, cod_pnf=cod_pnf_sel, top_n=10
+        )
+        st.session_state["top_promedios_etiqueta"] = carrera_prom_sel
+
+      # Recalcular automáticamente si el usuario cambia la carrera en el selector
+      if st.session_state.get("top_promedios_etiqueta") != carrera_prom_sel:
+        cod_pnf_sel = etiqueta_a_cod.get(carrera_prom_sel)
+        st.session_state["top_promedios_cache"] = calcular_mejores_promedios(
+            db, cod_pnf=cod_pnf_sel, top_n=10
+        )
+        st.session_state["top_promedios_etiqueta"] = carrera_prom_sel
+
+      top_promedios = st.session_state.get("top_promedios_cache", [])
+
+      if top_promedios:
+        st.caption(
+            f"Mostrando los primeros {len(top_promedios)} promedios — **{carrera_prom_sel}**"
+        )
+        st.dataframe(
+            pd.DataFrame(top_promedios),
+            use_container_width=True,
+            hide_index=True,
+        )
+      else:
+        st.warning("No se encontraron notas registradas para mostrar promedios con este criterio.")
