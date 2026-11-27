@@ -602,6 +602,163 @@ def render():
 
       notas_registradas = list(notas_col.find(query, {"_id": 0}))
 
+      def calcular_mejores_promedios(db, cod_pnf=None, top_n=10):
+        """Calcula los mejores promedios por estudiante (máx. 2 decimales).
+      
+        Suma todas las notas del estudiante y divide entre el total de notas.
+        Si se indica `cod_pnf`, filtra por esa carrera; si es None, toma todas.
+        """
+        notas_col = db["notas"]
+        estudiantes_col = db["estudiantes"]
+        carreras_col = db["carreras"]
+        inscripciones_col = db["inscripciones_historial"]
+      
+        # 1. Mapear carreras por cod_pnf
+        carreras_map = {
+            str(c.get("cod_pnf", "")).strip(): str(c.get("nombre_pnf", "")).strip()
+            for c in carreras_col.find({}, {"_id": 0})
+            if c.get("cod_pnf")
+        }
+      
+        # 2. Mapear información básica de estudiantes por cédula
+        estudiantes_map = {}
+        for est in estudiantes_col.find({}, {"_id": 0}):
+          ced = str(est.get("cedula", "")).strip()
+          if ced:
+            estudiantes_map[ced] = est
+      
+        # 3. Mapear carrera actual/última de cada estudiante desde inscripciones_historial
+        carrera_por_cedula = {}
+        for insc in inscripciones_col.find({}, {"_id": 0}):
+          ced = str(insc.get("cedula", "")).strip()
+          pnf = str(insc.get("cod_pnf", "")).strip()
+          if not ced or not pnf:
+            continue
+          # Priorizar inscripción Activa si no se había asignado una activa aún
+          if ced not in carrera_por_cedula or insc.get("estado") == "Activo":
+            carrera_por_cedula[ced] = pnf
+      
+        # 4. Agrupar y sumar notas por estudiante
+        acumulado_notas = {}
+        for n in notas_col.find({}, {"_id": 0}):
+          ced = str(n.get("cedula", "")).strip()
+          if not ced:
+            continue
+          try:
+            valor_nota = float(n.get("nota"))
+          except (ValueError, TypeError):
+            continue
+      
+          # Si la nota trae cod_pnf directo, se usa; si no, se toma de inscripciones_historial
+          pnf_nota = str(n.get("cod_pnf", "")).strip() or carrera_por_cedula.get(ced, "")
+          if ced not in carrera_por_cedula and pnf_nota:
+            carrera_por_cedula[ced] = pnf_nota
+      
+          if ced not in acumulado_notas:
+            acumulado_notas[ced] = {"suma": 0.0, "cantidad": 0}
+      
+          acumulado_notas[ced]["suma"] += valor_nota
+          acumulado_notas[ced]["cantidad"] += 1
+      
+        # 5. Calcular promedio y filtrar por carrera si aplica
+        ranking = []
+        for ced, datos in acumulado_notas.items():
+          cantidad = datos["cantidad"]
+          if cantidad <= 0:
+            continue
+      
+          pnf_est = carrera_por_cedula.get(ced, "")
+          if cod_pnf and pnf_est != str(cod_pnf).strip():
+            continue
+      
+          promedio_raw = datos["suma"] / cantidad
+          promedio_2dec = round(promedio_raw, 2)
+          # Evitar .00 innecesario si es entero o dejar hasta 2 decimales exactos
+          promedio_limpio = int(promedio_2dec) if promedio_2dec.is_integer() else promedio_2dec
+      
+          est_info = estudiantes_map.get(ced, {})
+          apellidos = str(est_info.get("apellidos", "")).strip().upper()
+          nombres = str(est_info.get("nombres", "")).strip().upper()
+          nombre_completo = (
+              f"{apellidos}, {nombres}".strip(", ")
+              if (apellidos or nombres)
+              else f"Cédula {ced}"
+          )
+      
+          ranking.append({
+              "Puesto": 0,
+              "Cédula": ced,
+              "Estudiante": nombre_completo,
+              "Carrera / PNF": carreras_map.get(pnf_est, pnf_est or "Sin Carrera"),
+              "Total Notas": cantidad,
+              "Suma Notas": round(datos["suma"], 2),
+              "Promedio": promedio_limpio,
+          })
+      
+        # Ordenar de mayor a menor promedio (y desempate por cantidad de notas / nombre)
+        ranking.sort(
+            key=lambda x: (float(x["Promedio"]), x["Total Notas"], x["Estudiante"]),
+            reverse=True,
+        )
+      
+        top_resultado = ranking[:top_n]
+        for idx, fila in enumerate(top_resultado, start=1):
+          fila["Puesto"] = idx
+      
+        return top_resultado
+      
+      
+      def mostrar_seccion_mejores_promedios(db, carreras_col):
+        """Renderiza dentro de 'Listado y Gestión de Notas' el Top 10 y filtro por carrera."""
+        st.markdown("---")
+        st.markdown("### 🏆 Mejores Promedios Estudiantiles")
+      
+        carreras_list = list(carreras_col.find({}, {"_id": 0}))
+        opciones_carrera = ["Todas las carreras (Top 10 General)"]
+        etiqueta_a_cod = {}
+      
+        for c in carreras_list:
+          cod = str(c.get("cod_pnf", "")).strip()
+          nom = str(c.get("nombre_pnf", "")).strip()
+          if cod:
+            etiqueta = f"{cod} - {nom}" if nom else cod
+            opciones_carrera.append(etiqueta)
+            etiqueta_a_cod[etiqueta] = cod
+      
+        col_f_prom1, col_f_prom2 = st.columns([3, 1])
+        with col_f_prom1:
+          seleccion_carrera = st.selectbox(
+              "Filtrar mejores promedios por carrera",
+              opciones_carrera,
+              key="filtro_mejores_promedios_carrera",
+          )
+        with col_f_prom2:
+          st.write("")
+          st.write("")
+          btn_calcular_prom = st.button(
+              "📊 Calcular Promedios",
+              key="btn_calcular_mejores_promedios",
+              use_container_width=True,
+          )
+      
+        cod_pnf_filtro = etiqueta_a_cod.get(seleccion_carrera)
+        top_promedios = calcular_mejores_promedios(
+            db, cod_pnf=cod_pnf_filtro, top_n=10
+        )
+      
+        if top_promedios:
+          if cod_pnf_filtro:
+            st.caption(f"Mostrando los primeros {len(top_promedios)} promedios en: **{seleccion_carrera}**")
+          else:
+            st.caption(f"Mostrando los primeros {len(top_promedios)} promedios generales sin importar la carrera.")
+      
+          df_promedios = pd.DataFrame(top_promedios)[
+              ["Puesto", "Cédula", "Estudiante", "Carrera / PNF", "Total Notas", "Promedio"]
+          ]
+          st.dataframe(df_promedios, use_container_width=True, hide_index=True)
+        else:
+          st.info("No hay suficientes notas registradas para calcular promedios con este filtro.")
+
       if notas_registradas:
         df_notas = pd.DataFrame(notas_registradas)
         st.dataframe(df_notas, use_container_width=True, hide_index=True)
